@@ -1,0 +1,19 @@
+{
+  "id": "20260508-1913-71a8",
+  "prompt": "Rebase PR #49 against main and resolve conflicts.\n\n## Context\nPRs #47 (system-prompt anti-fabrication) and #48 (Radarr/Sonarr Release.Quality decode fix) both merged into main while this PR was open. PR #49 ('feat: surface tool errors as structured ToolResult') touches a superset of files and now conflicts with main.\n\nFiles changed by #49:\n- internal/agent/agent.go\n- internal/agent/agent_test.go\n- internal/agent/dispatch_notebook.go\n- internal/agent/dispatch_overseerr.go\n- internal/agent/dispatch_prowlarr.go\n- internal/agent/dispatch_radarr.go\n- internal/agent/dispatch_sonarr.go\n- internal/agent/ratelimit_test.go\n- internal/agent/tools.go\n- internal/agent/tools_test.go\n\n## Expected conflicts\n- **internal/agent/agent.go (system prompt)**: PR #47 added an anti-fabrication block to the systemPrompt const; this PR added a tool-failure-handling block. Both should survive — they're complementary guidance addressing different failure modes. Merge them coherently in the same prompt section.\n- **internal/agent/agent_test.go**: PR #47 added a test asserting the anti-fabrication text is present; this PR likely added tests around tool-result handling. Both keep.\n- **internal/radarr/types.go / internal/sonarr/types.go (if touched)**: PR #48 changed Release.Quality from string to a nested Quality struct. If #49's branch still references Release.Quality as a string anywhere (e.g. in tests, dispatch code that formats output), update those usages — typical replacement is `r.Quality.Quality.Name` for the human-readable label.\n\n## Steps\n1. `git fetch origin main` and `git rebase origin/main` on the PR's branch (`agent/20260508-1715-4ab2`).\n2. Resolve each conflict by reading both sides and keeping both intents.\n3. After rebase, run `go build ./...` and `go test ./...`. The Release.Quality type change is the most likely place tests break — fix any usages that assumed Quality was a string.\n4. Force-push the rebased branch (`git push --force-with-lease`).\n5. Don't change scope. Don't drop or rewrite #49's actual feature work.\n\n## Acceptance\n- PR #49 cleanly mergeable against main (no conflicts)\n- `go test ./...` passes\n- Both PR #47's anti-fabrication prompt and PR #49's tool-failure-handling prompt are present in the systemPrompt\n- All Release.Quality usages updated to the new struct shape",
+  "issue": null,
+  "pr": "49",
+  "branch": "agent/20260508-1715-4ab2",
+  "worktree": "/tmp/klaus-sessions/reel-life/20260508-1913-71a8",
+  "tmux_pane": "%24",
+  "budget": "3",
+  "log_file": "/home/patrick/.klaus/sessions/session-20260429-0935-cfb5/logs/20260508-1913-71a8.jsonl",
+  "created_at": "2026-05-08T19:13:46-04:00",
+  "cost_usd": 0.5080745000000001,
+  "duration_ms": 67635,
+  "pr_url": "https://github.com/gunk-dev/reel-life/pull/49",
+  "type": "pr-fix",
+  "target_repo": "reel-life",
+  "clone_dir": "/home/patrick/hack/reel-life",
+  "session_name": "20260508-1913-71a8"
+}
