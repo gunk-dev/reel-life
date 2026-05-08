@@ -925,6 +925,22 @@ func TestBuildSystemPromptNoWeather(t *testing.T) {
 	}
 }
 
+func TestBuildSystemPromptToolDiscipline(t *testing.T) {
+	a := newTestAgent()
+	prompt := a.buildSystemPrompt(context.Background())
+	wantSubstrings := []string{
+		"Tool discipline",
+		"NEVER fabricate tool results",
+		"Do NOT report past-tense success",
+		"call the tool for each one",
+	}
+	for _, want := range wantSubstrings {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("expected prompt to contain %q, but it did not", want)
+		}
+	}
+}
+
 func TestBuildSystemPromptWithWeather(t *testing.T) {
 	// Create a mock weather server.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
