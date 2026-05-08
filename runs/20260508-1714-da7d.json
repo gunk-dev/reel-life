@@ -1,0 +1,17 @@
+{
+  "id": "20260508-1714-da7d",
+  "prompt": "Fix the Radarr (and Sonarr) Release.Quality decode bug.\n\n## What's broken\n`internal/radarr/types.go:84` defines:\n```go\ntype Release struct {\n    ...\n    Quality string `json:\"quality\"`\n    ...\n}\n```\nBut Radarr's `/api/v3/release` response returns `quality` as a nested object, not a string. Every `manual_movie_search` invocation fails with:\n```\nmanual search: decode response: json: cannot unmarshal object into Go struct field Release.quality of type string\n```\n\nThe same bug exists in Sonarr at `internal/sonarr/types.go:104` (`Quality string` on the Release struct). Fix both.\n\n## What the response actually looks like\nPer the issue's example payload:\n```json\n\"quality\": {\n  \"quality\": { \"id\": 7, \"name\": \"Bluray-1080p\", \"source\": \"bluray\", \"resolution\": 1080, \"modifier\": \"none\" },\n  \"revision\": { \"version\": 1, \"real\": 0, \"isRepack\": false }\n}\n```\n\n## Fix\n1. In `internal/radarr/types.go`, define the nested types and change `Release.Quality` to use them:\n   ```go\n   type QualityDefinition struct {\n       ID         int    `json:\"id\"`\n       Name       string `json:\"name\"`\n       Source     string `json:\"source\"`\n       Resolution int    `json:\"resolution\"`\n       Modifier   string `json:\"modifier\"`\n   }\n   type Revision struct {\n       Version  int  `json:\"version\"`\n       Real     int  `json:\"real\"`\n       IsRepack bool `json:\"isRepack\"`\n   }\n   type Quality struct {\n       Quality  QualityDefinition `json:\"quality\"`\n       Revision Revision          `json:\"revision\"`\n   }\n   ```\n   Then change the Release struct field to `Quality Quality \\`json:\\\"quality\\\"\\``.\n\n2. Apply the analogous change in `internal/sonarr/types.go` for its Release struct (line 104).\n\n3. Search the codebase for other usages of `Release.Quality` to see if any code assumed it was a string and needs updating to use `.Quality.Quality.Name` (the human-readable label like \"Bluray-1080p\") or similar.\n\n4. Add a unit test in `internal/radarr/client_test.go` (and analogous in sonarr) that exercises ManualSearch decoding against a fixture payload matching the real Radarr response shape. Use the example from the issue. The test should fail before the type change and pass after.\n\n5. Run `go test ./...` and confirm green.\n\n## Acceptance\n- `internal/radarr/types.go` and `internal/sonarr/types.go` both updated\n- New test fixtures exercise the real response shape\n- `go test ./...` passes\n- PR description references issue #44 with `Closes #44`",
+  "issue": "44",
+  "branch": "agent/20260508-1714-da7d",
+  "worktree": "/tmp/klaus-sessions/reel-life/20260508-1714-da7d",
+  "tmux_pane": "%15",
+  "budget": "3",
+  "log_file": "/home/patrick/.klaus/sessions/session-20260429-0935-cfb5/logs/20260508-1714-da7d.jsonl",
+  "created_at": "2026-05-08T17:14:55-04:00",
+  "cost_usd": 0.9342820000000002,
+  "duration_ms": 122675,
+  "pr_url": "https://github.com/gunk-dev/reel-life/pull/48",
+  "target_repo": "reel-life",
+  "clone_dir": "/home/patrick/hack/reel-life",
+  "session_name": "20260508-1714-da7d"
+}
