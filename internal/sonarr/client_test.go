@@ -277,14 +277,14 @@ func TestManualSearch(t *testing.T) {
 		t.Fatalf("ManualSearch() error: %v", err)
 	}
 	if len(releases) != 1 || releases[0].Indexer != "NZBgeek" {
-		t.Errorf("unexpected releases: %+v", releases)
+		t.Fatalf("unexpected releases: %+v", releases)
 	}
-	got := releases[0].Quality.Quality.Name
+	got := releases[0].Quality.Definition.Name
 	if got != "HDTV-720p" {
-		t.Errorf("Quality.Quality.Name = %q, want %q", got, "HDTV-720p")
+		t.Errorf("Quality.Definition.Name = %q, want %q", got, "HDTV-720p")
 	}
-	if releases[0].Quality.Quality.Resolution != 720 {
-		t.Errorf("Quality.Quality.Resolution = %d, want 720", releases[0].Quality.Quality.Resolution)
+	if releases[0].Quality.Definition.Resolution != 720 {
+		t.Errorf("Quality.Definition.Resolution = %d, want 720", releases[0].Quality.Definition.Resolution)
 	}
 	if releases[0].Quality.Revision.Version != 1 {
 		t.Errorf("Quality.Revision.Version = %d, want 1", releases[0].Quality.Revision.Version)

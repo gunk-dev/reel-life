@@ -94,8 +94,8 @@ type Release struct {
 }
 
 type Quality struct {
-	Quality  QualityDefinition `json:"quality"`
-	Revision Revision          `json:"revision"`
+	Definition QualityDefinition `json:"quality"`
+	Revision   Revision          `json:"revision"`
 }
 
 type QualityDefinition struct {
