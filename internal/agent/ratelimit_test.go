@@ -170,12 +170,15 @@ func TestRateLimiterDenialReturnedAsToolError(t *testing.T) {
 	input, _ := json.Marshal(addSeriesInput{
 		Title: "Test", TVDBID: 1, QualityProfileID: 1, RootFolderPath: "/tv",
 	})
-	result, isErr := a.executeToolWithAudit(context.Background(), "add_series", input, 0, "req-1")
-	if !isErr {
+	result := a.executeToolWithAudit(context.Background(), "add_series", input, 0, "req-1")
+	if result.Success {
 		t.Fatal("expected error from rate-limited tool")
 	}
-	if !strings.Contains(result, "content changes") {
-		t.Errorf("expected content changes limit message, got %s", result)
+	if !strings.Contains(result.Error, "content changes") {
+		t.Errorf("expected content changes limit message, got %s", result.Error)
+	}
+	if result.ErrorKind != "rate_limited" {
+		t.Errorf("expected error_kind=rate_limited, got %q", result.ErrorKind)
 	}
 }
 

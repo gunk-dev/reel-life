@@ -8,11 +8,11 @@ import (
 	"github.com/patflynn/reel-life/internal/notebook"
 )
 
-func (a *Agent) dispatchNotebook(ctx context.Context, name string, rawInput json.RawMessage) (string, bool, bool) {
+func (a *Agent) dispatchNotebook(ctx context.Context, name string, rawInput json.RawMessage) (ToolResult, bool) {
 	if a.notebook == nil {
 		switch name {
 		case "notebook_write", "notebook_read", "notebook_list", "notebook_delete":
-			return jsonError("Notebook integration is not configured"), true, true
+			return notConfiguredError("Notebook"), true
 		}
 	}
 
@@ -23,11 +23,11 @@ func (a *Agent) dispatchNotebook(ctx context.Context, name string, rawInput json
 	case "notebook_write":
 		var input notebookWriteInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		noteType := notebook.NoteType(input.Type)
 		if noteType != notebook.Pinned && noteType != notebook.Reference {
-			return jsonError("type must be 'pinned' or 'reference'"), true, true
+			return errorResult("invalid_input", "type must be 'pinned' or 'reference'", false), true
 		}
 		// Check for duplicate titles to avoid creating redundant notes.
 		if input.ID == "" {
@@ -40,7 +40,7 @@ func (a *Agent) dispatchNotebook(ctx context.Context, name string, rawInput json
 							"existing_id": n.ID,
 							"title":       n.Title,
 						})
-						return string(data), false, true
+						return successResult(string(data)), true
 					}
 				}
 			}
@@ -57,13 +57,13 @@ func (a *Agent) dispatchNotebook(ctx context.Context, name string, rawInput json
 	case "notebook_read":
 		var input notebookReadInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		result, err = a.notebook.Read(ctx, input.ID)
 	case "notebook_list":
 		var input notebookListInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		summaries, listErr := a.notebook.List(ctx)
 		if listErr != nil {
@@ -82,24 +82,19 @@ func (a *Agent) dispatchNotebook(ctx context.Context, name string, rawInput json
 	case "notebook_delete":
 		var input notebookDeleteInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		err = a.notebook.Delete(ctx, input.ID)
 		if err == nil {
 			result = map[string]string{"status": "deleted"}
 		}
 	default:
-		return "", false, false
+		return ToolResult{}, false
 	}
 
 	if err != nil {
 		a.logger.Warn("tool error", "tool", name, "error", err)
-		return jsonError(err.Error()), true, true
+		return errorResultFromErr(err), true
 	}
-
-	data, marshalErr := json.Marshal(result)
-	if marshalErr != nil {
-		return jsonError("failed to marshal result: " + marshalErr.Error()), true, true
-	}
-	return string(data), false, true
+	return marshalResult(result), true
 }

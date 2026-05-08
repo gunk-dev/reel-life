@@ -8,7 +8,7 @@ import (
 	"github.com/patflynn/reel-life/internal/sonarr"
 )
 
-func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.RawMessage) (string, bool, bool) {
+func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.RawMessage) (ToolResult, bool) {
 	if a.sonarr == nil {
 		switch name {
 		case "search_series", "add_series", "get_queue", "get_history", "check_health", "remove_failed",
@@ -17,7 +17,7 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 			"trigger_series_search", "delete_series", "remove_blocklist_item", "grab_release",
 			"update_episode_monitoring", "monitor_season_episodes", "update_series_profile",
 			"get_language_profiles", "update_series_language_profile":
-			return jsonError("Sonarr integration is not configured"), true, true
+			return notConfiguredError("Sonarr"), true
 		}
 	}
 
@@ -28,14 +28,14 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 	case "search_series":
 		var input searchSeriesInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		result, err = a.sonarr.Search(ctx, input.Term)
 
 	case "add_series":
 		var input addSeriesInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		result, err = a.sonarr.Add(ctx, sonarr.AddSeriesRequest{
 			Title:            input.Title,
@@ -52,7 +52,7 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 	case "get_history":
 		var input getHistoryInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		pageSize := input.PageSize
 		if pageSize == 0 {
@@ -66,7 +66,7 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 	case "remove_failed":
 		var input removeFailedInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		err = a.sonarr.RemoveFailed(ctx, input.ID, input.Blocklist)
 		if err == nil {
@@ -76,28 +76,28 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 	case "get_series_detail":
 		var input getSeriesDetailInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		result, err = a.sonarr.GetSeries(ctx, input.SeriesID)
 
 	case "get_episodes":
 		var input getEpisodesInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		result, err = a.sonarr.GetEpisodes(ctx, input.SeriesID)
 
 	case "get_logs":
 		var input getLogsInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		result, err = a.sonarr.GetLogs(ctx, input.PageSize, input.Level)
 
 	case "manual_search":
 		var input manualSearchInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		result, err = a.sonarr.ManualSearch(ctx, input.EpisodeID)
 
@@ -107,7 +107,7 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 	case "get_blocklist":
 		var input getBlocklistInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		result, err = a.sonarr.GetBlocklist(ctx, input.PageSize)
 
@@ -120,7 +120,7 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 	case "update_series_monitoring":
 		var input updateSeriesMonitoringInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		series, getErr := a.sonarr.GetSeries(ctx, input.SeriesID)
 		if getErr != nil {
@@ -136,14 +136,14 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 			}
 		}
 		if !found {
-			return jsonError(fmt.Sprintf("season %d not found in series %q", input.SeasonNumber, series.Title)), true, true
+			return errorResult("not_found", fmt.Sprintf("season %d not found in series %q", input.SeasonNumber, series.Title), false), true
 		}
 		result, err = a.sonarr.UpdateSeries(ctx, series)
 
 	case "trigger_series_search":
 		var input triggerSeriesSearchInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		cmd := sonarr.CommandRequest{
 			Name:     "SeriesSearch",
@@ -158,7 +158,7 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 	case "delete_series":
 		var input deleteSeriesInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		err = a.sonarr.DeleteSeries(ctx, input.SeriesID, input.DeleteFiles)
 		if err == nil {
@@ -168,7 +168,7 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 	case "remove_blocklist_item":
 		var input removeBlocklistItemInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		err = a.sonarr.DeleteBlocklistItem(ctx, input.ID)
 		if err == nil {
@@ -178,14 +178,14 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 	case "grab_release":
 		var input grabReleaseInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		result, err = a.sonarr.GrabRelease(ctx, input.GUID, input.IndexerID)
 
 	case "update_episode_monitoring":
 		var input updateEpisodeMonitoringInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		err = a.sonarr.MonitorEpisodes(ctx, []int{input.EpisodeID}, input.Monitored)
 		if err == nil {
@@ -195,7 +195,7 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 	case "monitor_season_episodes":
 		var input monitorSeasonEpisodesInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		episodes, getErr := a.sonarr.GetEpisodes(ctx, input.SeriesID, input.SeasonNumber)
 		if getErr != nil {
@@ -207,7 +207,7 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 			ids = append(ids, ep.ID)
 		}
 		if len(ids) == 0 {
-			return jsonError(fmt.Sprintf("no episodes found for season %d", input.SeasonNumber)), true, true
+			return errorResult("not_found", fmt.Sprintf("no episodes found for season %d", input.SeasonNumber), false), true
 		}
 		err = a.sonarr.MonitorEpisodes(ctx, ids, input.Monitored)
 		if err == nil {
@@ -217,7 +217,7 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 	case "update_series_profile":
 		var input updateSeriesProfileInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		series, getErr := a.sonarr.GetSeries(ctx, input.SeriesID)
 		if getErr != nil {
@@ -233,7 +233,7 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 	case "update_series_language_profile":
 		var input updateSeriesLanguageProfileInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
-			return jsonError("invalid input: " + err.Error()), true, true
+			return inputDecodeError(err), true
 		}
 		series, getErr := a.sonarr.GetSeries(ctx, input.SeriesID)
 		if getErr != nil {
@@ -244,17 +244,12 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 		result, err = a.sonarr.UpdateSeries(ctx, series)
 
 	default:
-		return "", false, false
+		return ToolResult{}, false
 	}
 
 	if err != nil {
 		a.logger.Warn("tool error", "tool", name, "error", err)
-		return jsonError(err.Error()), true, true
+		return errorResultFromErr(err), true
 	}
-
-	data, marshalErr := json.Marshal(result)
-	if marshalErr != nil {
-		return jsonError("failed to marshal result: " + marshalErr.Error()), true, true
-	}
-	return string(data), false, true
+	return marshalResult(result), true
 }

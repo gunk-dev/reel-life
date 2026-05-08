@@ -248,17 +248,17 @@ func TestDispatchSearchSeries(t *testing.T) {
 	a.sonarr = mock
 
 	input, _ := json.Marshal(searchSeriesInput{Term: "breaking bad"})
-	result, isErr := a.dispatchTool(context.Background(), "search_series", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "search_series", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var series []sonarr.Series
-	if err := json.Unmarshal([]byte(result), &series); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &series); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(series) != 1 || series[0].Title != "Breaking Bad" {
-		t.Errorf("unexpected result: %s", result)
+		t.Errorf("unexpected result: %s", result.Content)
 	}
 }
 
@@ -272,13 +272,13 @@ func TestDispatchCheckHealth(t *testing.T) {
 	a.sonarr = mock
 
 	input, _ := json.Marshal(struct{}{})
-	result, isErr := a.dispatchTool(context.Background(), "check_health", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "check_health", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var checks []sonarr.HealthCheck
-	if err := json.Unmarshal([]byte(result), &checks); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &checks); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(checks) != 1 {
@@ -290,26 +290,26 @@ func TestDispatchRemoveFailed(t *testing.T) {
 	a := newTestAgent()
 
 	input, _ := json.Marshal(removeFailedInput{ID: 42, Blocklist: true})
-	result, isErr := a.dispatchTool(context.Background(), "remove_failed", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "remove_failed", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var status map[string]string
-	json.Unmarshal([]byte(result), &status)
+	json.Unmarshal([]byte(result.Content), &status)
 	if status["status"] != "removed" {
-		t.Errorf("expected status=removed, got %s", result)
+		t.Errorf("expected status=removed, got %s", result.Content)
 	}
 }
 
 func TestDispatchUnknownTool(t *testing.T) {
 	a := &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}, prowlarr: &mockProwlarr{}, overseerr: &mockOverseerr{}}
 
-	result, isErr := a.dispatchTool(context.Background(), "nonexistent", json.RawMessage("{}"))
-	if !isErr {
+	result := a.dispatchTool(context.Background(), "nonexistent", json.RawMessage("{}"))
+	if result.Success {
 		t.Fatal("expected error for unknown tool")
 	}
-	if result == "" {
+	if result.Error == "" {
 		t.Fatal("expected error message")
 	}
 }
@@ -328,13 +328,13 @@ func TestDispatchGetQueue(t *testing.T) {
 	a.sonarr = mock
 
 	input, _ := json.Marshal(struct{}{})
-	result, isErr := a.dispatchTool(context.Background(), "get_queue", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "get_queue", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var queue sonarr.QueuePage
-	if err := json.Unmarshal([]byte(result), &queue); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &queue); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if queue.TotalRecords != 2 {
@@ -351,13 +351,13 @@ func TestDispatchAddSeries(t *testing.T) {
 		QualityProfileID: 1,
 		RootFolderPath:   "/tv",
 	})
-	result, isErr := a.dispatchTool(context.Background(), "add_series", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "add_series", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var series sonarr.Series
-	if err := json.Unmarshal([]byte(result), &series); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &series); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if series.Title != "Breaking Bad" {
@@ -378,13 +378,13 @@ func TestDispatchGetHistory(t *testing.T) {
 	a.sonarr = mock
 
 	input, _ := json.Marshal(getHistoryInput{PageSize: 10})
-	result, isErr := a.dispatchTool(context.Background(), "get_history", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "get_history", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var history sonarr.HistoryPage
-	if err := json.Unmarshal([]byte(result), &history); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &history); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if history.TotalRecords != 1 {
@@ -402,17 +402,17 @@ func TestDispatchSearchMovies(t *testing.T) {
 	a.radarr = mock
 
 	input, _ := json.Marshal(searchMoviesInput{Term: "inception"})
-	result, isErr := a.dispatchTool(context.Background(), "search_movies", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "search_movies", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var movies []radarr.Movie
-	if err := json.Unmarshal([]byte(result), &movies); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &movies); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(movies) != 1 || movies[0].Title != "Inception" {
-		t.Errorf("unexpected result: %s", result)
+		t.Errorf("unexpected result: %s", result.Content)
 	}
 }
 
@@ -425,13 +425,13 @@ func TestDispatchAddMovie(t *testing.T) {
 		QualityProfileID: 1,
 		RootFolderPath:   "/movies",
 	})
-	result, isErr := a.dispatchTool(context.Background(), "add_movie", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "add_movie", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var movie radarr.Movie
-	if err := json.Unmarshal([]byte(result), &movie); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &movie); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if movie.Title != "Inception" {
@@ -452,13 +452,13 @@ func TestDispatchGetMovieQueue(t *testing.T) {
 	a.radarr = mock
 
 	input, _ := json.Marshal(struct{}{})
-	result, isErr := a.dispatchTool(context.Background(), "get_movie_queue", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "get_movie_queue", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var queue radarr.QueuePage
-	if err := json.Unmarshal([]byte(result), &queue); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &queue); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if queue.TotalRecords != 1 {
@@ -476,13 +476,13 @@ func TestDispatchCheckMovieHealth(t *testing.T) {
 	a.radarr = mock
 
 	input, _ := json.Marshal(struct{}{})
-	result, isErr := a.dispatchTool(context.Background(), "check_movie_health", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "check_movie_health", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var checks []radarr.HealthCheck
-	if err := json.Unmarshal([]byte(result), &checks); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &checks); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(checks) != 1 {
@@ -494,15 +494,15 @@ func TestDispatchRemoveFailedMovie(t *testing.T) {
 	a := newTestAgent()
 
 	input, _ := json.Marshal(removeFailedMovieInput{ID: 42, Blocklist: true})
-	result, isErr := a.dispatchTool(context.Background(), "remove_failed_movie", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "remove_failed_movie", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var status map[string]string
-	json.Unmarshal([]byte(result), &status)
+	json.Unmarshal([]byte(result.Content), &status)
 	if status["status"] != "removed" {
-		t.Errorf("expected status=removed, got %s", result)
+		t.Errorf("expected status=removed, got %s", result.Content)
 	}
 }
 
@@ -519,13 +519,13 @@ func TestDispatchGetMovieHistory(t *testing.T) {
 	a.radarr = mock
 
 	input, _ := json.Marshal(getMovieHistoryInput{PageSize: 10})
-	result, isErr := a.dispatchTool(context.Background(), "get_movie_history", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "get_movie_history", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var history radarr.HistoryPage
-	if err := json.Unmarshal([]byte(result), &history); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &history); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if history.TotalRecords != 1 {
@@ -543,17 +543,17 @@ func TestDispatchListIndexers(t *testing.T) {
 	a.prowlarr = mock
 
 	input, _ := json.Marshal(struct{}{})
-	result, isErr := a.dispatchTool(context.Background(), "list_indexers", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "list_indexers", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var indexers []prowlarr.Indexer
-	if err := json.Unmarshal([]byte(result), &indexers); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &indexers); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(indexers) != 1 || indexers[0].Name != "NZBgeek" {
-		t.Errorf("unexpected result: %s", result)
+		t.Errorf("unexpected result: %s", result.Content)
 	}
 }
 
@@ -561,15 +561,15 @@ func TestDispatchTestIndexer(t *testing.T) {
 	a := newTestAgent()
 
 	input, _ := json.Marshal(testIndexerInput{ID: 5})
-	result, isErr := a.dispatchTool(context.Background(), "test_indexer", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "test_indexer", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var status map[string]string
-	json.Unmarshal([]byte(result), &status)
+	json.Unmarshal([]byte(result.Content), &status)
 	if status["status"] != "ok" {
-		t.Errorf("expected status=ok, got %s", result)
+		t.Errorf("expected status=ok, got %s", result.Content)
 	}
 }
 
@@ -585,13 +585,13 @@ func TestDispatchGetIndexerStats(t *testing.T) {
 	a.prowlarr = mock
 
 	input, _ := json.Marshal(struct{}{})
-	result, isErr := a.dispatchTool(context.Background(), "get_indexer_stats", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "get_indexer_stats", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var stats prowlarr.IndexerStats
-	if err := json.Unmarshal([]byte(result), &stats); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &stats); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(stats.Indexers) != 1 {
@@ -609,13 +609,13 @@ func TestDispatchCheckIndexerHealth(t *testing.T) {
 	a.prowlarr = mock
 
 	input, _ := json.Marshal(struct{}{})
-	result, isErr := a.dispatchTool(context.Background(), "check_indexer_health", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "check_indexer_health", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var checks []prowlarr.HealthCheck
-	if err := json.Unmarshal([]byte(result), &checks); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &checks); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(checks) != 1 {
@@ -633,17 +633,17 @@ func TestDispatchSearchIndexers(t *testing.T) {
 	a.prowlarr = mock
 
 	input, _ := json.Marshal(searchIndexersInput{Query: "breaking bad"})
-	result, isErr := a.dispatchTool(context.Background(), "search_indexers", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "search_indexers", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var results []prowlarr.SearchResult
-	if err := json.Unmarshal([]byte(result), &results); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &results); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(results) != 1 || results[0].Title != "Breaking.Bad.S01E01" {
-		t.Errorf("unexpected result: %s", result)
+		t.Errorf("unexpected result: %s", result.Content)
 	}
 }
 
@@ -651,11 +651,11 @@ func TestDispatchOverseerrNotConfigured(t *testing.T) {
 	a := &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}, prowlarr: &mockProwlarr{}}
 
 	for _, tool := range []string{"list_requests", "approve_request", "decline_request", "get_request_count", "search_media"} {
-		result, isErr := a.dispatchTool(context.Background(), tool, json.RawMessage("{}"))
-		if !isErr {
+		result := a.dispatchTool(context.Background(), tool, json.RawMessage("{}"))
+		if result.Success {
 			t.Errorf("%s: expected error when overseerr not configured", tool)
 		}
-		if result == "" {
+		if result.Error == "" {
 			t.Errorf("%s: expected error message", tool)
 		}
 	}
@@ -673,13 +673,13 @@ func TestDispatchListRequests(t *testing.T) {
 	a.overseerr = mock
 
 	input, _ := json.Marshal(listRequestsInput{Filter: "all", Take: 10})
-	result, isErr := a.dispatchTool(context.Background(), "list_requests", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "list_requests", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var page overseerr.RequestPage
-	if err := json.Unmarshal([]byte(result), &page); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &page); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(page.Results) != 1 {
@@ -691,15 +691,15 @@ func TestDispatchApproveRequest(t *testing.T) {
 	a := newTestAgent()
 
 	input, _ := json.Marshal(approveRequestInput{ID: 1})
-	result, isErr := a.dispatchTool(context.Background(), "approve_request", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "approve_request", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var status map[string]string
-	json.Unmarshal([]byte(result), &status)
+	json.Unmarshal([]byte(result.Content), &status)
 	if status["status"] != "approved" {
-		t.Errorf("expected status=approved, got %s", result)
+		t.Errorf("expected status=approved, got %s", result.Content)
 	}
 }
 
@@ -707,15 +707,15 @@ func TestDispatchDeclineRequest(t *testing.T) {
 	a := newTestAgent()
 
 	input, _ := json.Marshal(declineRequestInput{ID: 1})
-	result, isErr := a.dispatchTool(context.Background(), "decline_request", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "decline_request", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var status map[string]string
-	json.Unmarshal([]byte(result), &status)
+	json.Unmarshal([]byte(result.Content), &status)
 	if status["status"] != "declined" {
-		t.Errorf("expected status=declined, got %s", result)
+		t.Errorf("expected status=declined, got %s", result.Content)
 	}
 }
 
@@ -729,13 +729,13 @@ func TestDispatchGetRequestCount(t *testing.T) {
 	a.overseerr = mock
 
 	input, _ := json.Marshal(struct{}{})
-	result, isErr := a.dispatchTool(context.Background(), "get_request_count", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "get_request_count", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var count overseerr.RequestCount
-	if err := json.Unmarshal([]byte(result), &count); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &count); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if count.Total != 17 {
@@ -756,17 +756,17 @@ func TestDispatchSearchMedia(t *testing.T) {
 	a.overseerr = mock
 
 	input, _ := json.Marshal(searchMediaInput{Query: "inception"})
-	result, isErr := a.dispatchTool(context.Background(), "search_media", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "search_media", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var results overseerr.SearchResults
-	if err := json.Unmarshal([]byte(result), &results); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &results); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if results.TotalResults != 1 || results.Results[0].Title != "Inception" {
-		t.Errorf("unexpected result: %s", result)
+		t.Errorf("unexpected result: %s", result.Content)
 	}
 }
 
@@ -774,11 +774,11 @@ func TestDispatchNotebookNotConfigured(t *testing.T) {
 	a := &Agent{sonarr: &mockSonarr{}, radarr: &mockRadarr{}, prowlarr: &mockProwlarr{}, overseerr: &mockOverseerr{}}
 
 	for _, tool := range []string{"notebook_write", "notebook_read", "notebook_list", "notebook_delete"} {
-		result, isErr := a.dispatchTool(context.Background(), tool, json.RawMessage("{}"))
-		if !isErr {
+		result := a.dispatchTool(context.Background(), tool, json.RawMessage("{}"))
+		if result.Success {
 			t.Errorf("%s: expected error when notebook not configured", tool)
 		}
-		if result == "" {
+		if result.Error == "" {
 			t.Errorf("%s: expected error message", tool)
 		}
 	}
@@ -792,15 +792,15 @@ func TestDispatchNotebookWrite(t *testing.T) {
 		Title:   "Test Note",
 		Content: "Some content",
 	})
-	result, isErr := a.dispatchTool(context.Background(), "notebook_write", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "notebook_write", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var status map[string]string
-	json.Unmarshal([]byte(result), &status)
+	json.Unmarshal([]byte(result.Content), &status)
 	if status["status"] != "saved" {
-		t.Errorf("expected status=saved, got %s", result)
+		t.Errorf("expected status=saved, got %s", result.Content)
 	}
 }
 
@@ -822,16 +822,16 @@ func TestDispatchNotebookWriteDuplicateTitle(t *testing.T) {
 		Title:   "User Preferences",
 		Content: "likes horror",
 	})
-	result, isErr := a.dispatchTool(ctx, "notebook_write", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(ctx, "notebook_write", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	// Should return a warning with existing_id.
 	var resp map[string]string
-	json.Unmarshal([]byte(result), &resp)
+	json.Unmarshal([]byte(result.Content), &resp)
 	if resp["warning"] == "" || resp["existing_id"] == "" {
-		t.Errorf("expected duplicate warning, got: %s", result)
+		t.Errorf("expected duplicate warning, got: %s", result.Content)
 	}
 }
 
@@ -848,13 +848,13 @@ func TestDispatchNotebookRead(t *testing.T) {
 	})
 
 	input, _ := json.Marshal(notebookReadInput{ID: "read-me"})
-	result, isErr := a.dispatchTool(ctx, "notebook_read", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(ctx, "notebook_read", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var note notebook.Note
-	if err := json.Unmarshal([]byte(result), &note); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &note); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	if note.Title != "Readable" || note.Content != "hello" {
@@ -871,27 +871,27 @@ func TestDispatchNotebookList(t *testing.T) {
 
 	// List all.
 	input, _ := json.Marshal(notebookListInput{})
-	result, isErr := a.dispatchTool(ctx, "notebook_list", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(ctx, "notebook_list", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var summaries []notebook.NoteSummary
-	json.Unmarshal([]byte(result), &summaries)
+	json.Unmarshal([]byte(result.Content), &summaries)
 	if len(summaries) != 2 {
 		t.Fatalf("expected 2 summaries, got %d", len(summaries))
 	}
 
 	// List filtered.
 	input, _ = json.Marshal(notebookListInput{Type: "pinned"})
-	result, isErr = a.dispatchTool(ctx, "notebook_list", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result = a.dispatchTool(ctx, "notebook_list", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
-	json.Unmarshal([]byte(result), &summaries)
+	json.Unmarshal([]byte(result.Content), &summaries)
 	if len(summaries) != 1 || summaries[0].Title != "Pinned" {
-		t.Errorf("unexpected filtered result: %s", result)
+		t.Errorf("unexpected filtered result: %s", result.Content)
 	}
 }
 
@@ -902,15 +902,15 @@ func TestDispatchNotebookDelete(t *testing.T) {
 	a.notebook.Write(ctx, notebook.Note{ID: "del-me", Type: notebook.Reference, Title: "Delete", Content: "x"})
 
 	input, _ := json.Marshal(notebookDeleteInput{ID: "del-me"})
-	result, isErr := a.dispatchTool(ctx, "notebook_delete", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(ctx, "notebook_delete", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var status map[string]string
-	json.Unmarshal([]byte(result), &status)
+	json.Unmarshal([]byte(result.Content), &status)
 	if status["status"] != "deleted" {
-		t.Errorf("expected status=deleted, got %s", result)
+		t.Errorf("expected status=deleted, got %s", result.Content)
 	}
 }
 
@@ -1012,8 +1012,8 @@ func TestDispatchNotebookWriteInvalidType(t *testing.T) {
 		Title:   "Bad",
 		Content: "x",
 	})
-	_, isErr := a.dispatchTool(context.Background(), "notebook_write", input)
-	if !isErr {
+	result := a.dispatchTool(context.Background(), "notebook_write", input)
+	if result.Success {
 		t.Fatal("expected error for invalid note type")
 	}
 }
@@ -1026,17 +1026,17 @@ func TestDispatchGetSeriesDetail(t *testing.T) {
 	a.sonarr = mock
 
 	input, _ := json.Marshal(getSeriesDetailInput{SeriesID: 1})
-	result, isErr := a.dispatchTool(context.Background(), "get_series_detail", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "get_series_detail", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var series sonarr.Series
-	if err := json.Unmarshal([]byte(result), &series); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &series); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if series.Title != "Breaking Bad" || series.EpisodeCount != 62 {
-		t.Errorf("unexpected result: %s", result)
+		t.Errorf("unexpected result: %s", result.Content)
 	}
 }
 
@@ -1050,17 +1050,17 @@ func TestDispatchGetEpisodes(t *testing.T) {
 	a.sonarr = mock
 
 	input, _ := json.Marshal(getEpisodesInput{SeriesID: 1})
-	result, isErr := a.dispatchTool(context.Background(), "get_episodes", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "get_episodes", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var episodes []sonarr.Episode
-	if err := json.Unmarshal([]byte(result), &episodes); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &episodes); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(episodes) != 1 || episodes[0].Title != "Pilot" {
-		t.Errorf("unexpected result: %s", result)
+		t.Errorf("unexpected result: %s", result.Content)
 	}
 }
 
@@ -1074,17 +1074,17 @@ func TestDispatchGetLogs(t *testing.T) {
 	a.sonarr = mock
 
 	input, _ := json.Marshal(getLogsInput{PageSize: 10, Level: "error"})
-	result, isErr := a.dispatchTool(context.Background(), "get_logs", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "get_logs", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var logs []sonarr.LogRecord
-	if err := json.Unmarshal([]byte(result), &logs); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &logs); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(logs) != 1 || logs[0].Level != "error" {
-		t.Errorf("unexpected result: %s", result)
+		t.Errorf("unexpected result: %s", result.Content)
 	}
 }
 
@@ -1098,17 +1098,17 @@ func TestDispatchManualSearch(t *testing.T) {
 	a.sonarr = mock
 
 	input, _ := json.Marshal(manualSearchInput{EpisodeID: 1})
-	result, isErr := a.dispatchTool(context.Background(), "manual_search", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "manual_search", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var releases []sonarr.Release
-	if err := json.Unmarshal([]byte(result), &releases); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &releases); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(releases) != 1 || releases[0].Indexer != "NZBgeek" {
-		t.Errorf("unexpected result: %s", result)
+		t.Errorf("unexpected result: %s", result.Content)
 	}
 }
 
@@ -1122,17 +1122,17 @@ func TestDispatchGetQualityProfiles(t *testing.T) {
 	a.sonarr = mock
 
 	input, _ := json.Marshal(struct{}{})
-	result, isErr := a.dispatchTool(context.Background(), "get_quality_profiles", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "get_quality_profiles", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var profiles []sonarr.QualityProfile
-	if err := json.Unmarshal([]byte(result), &profiles); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &profiles); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(profiles) != 1 || profiles[0].Name != "HD-1080p" {
-		t.Errorf("unexpected result: %s", result)
+		t.Errorf("unexpected result: %s", result.Content)
 	}
 }
 
@@ -1149,13 +1149,13 @@ func TestDispatchGetBlocklist(t *testing.T) {
 	a.sonarr = mock
 
 	input, _ := json.Marshal(getBlocklistInput{PageSize: 10})
-	result, isErr := a.dispatchTool(context.Background(), "get_blocklist", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "get_blocklist", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var page sonarr.BlocklistPage
-	if err := json.Unmarshal([]byte(result), &page); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &page); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if page.TotalRecords != 1 {
@@ -1173,17 +1173,17 @@ func TestDispatchGetRootFolders(t *testing.T) {
 	a.sonarr = mock
 
 	input, _ := json.Marshal(struct{}{})
-	result, isErr := a.dispatchTool(context.Background(), "get_root_folders", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "get_root_folders", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var folders []sonarr.RootFolder
-	if err := json.Unmarshal([]byte(result), &folders); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &folders); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(folders) != 1 || folders[0].Path != "/tv" {
-		t.Errorf("unexpected result: %s", result)
+		t.Errorf("unexpected result: %s", result.Content)
 	}
 }
 
@@ -1197,16 +1197,16 @@ func TestDispatchGetDownloadClients(t *testing.T) {
 	a.sonarr = mock
 
 	input, _ := json.Marshal(struct{}{})
-	result, isErr := a.dispatchTool(context.Background(), "get_download_clients", input)
-	if isErr {
-		t.Fatalf("unexpected error: %s", result)
+	result := a.dispatchTool(context.Background(), "get_download_clients", input)
+	if !result.Success {
+		t.Fatalf("unexpected error: %s", result.Error)
 	}
 
 	var clients []sonarr.DownloadClient
-	if err := json.Unmarshal([]byte(result), &clients); err != nil {
+	if err := json.Unmarshal([]byte(result.Content), &clients); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
 	if len(clients) != 1 || clients[0].Name != "SABnzbd" {
-		t.Errorf("unexpected result: %s", result)
+		t.Errorf("unexpected result: %s", result.Content)
 	}
 }
