@@ -120,8 +120,11 @@ func classifyError(err error) (kind string, retryable bool) {
 		return "decode", false
 	}
 
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+	if errors.Is(err, context.DeadlineExceeded) {
 		return "network", true
+	}
+	if errors.Is(err, context.Canceled) {
+		return "network", false
 	}
 	if strings.Contains(msg, "connection refused") ||
 		strings.Contains(msg, "no such host") ||

@@ -72,6 +72,12 @@ func TestClassifyError(t *testing.T) {
 			wantRetryable: true,
 		},
 		{
+			name:          "canceled",
+			err:           context.Canceled,
+			wantKind:      "network",
+			wantRetryable: false,
+		},
+		{
 			name:          "connection refused",
 			err:           errors.New("dial tcp 127.0.0.1:7878: connect: connection refused"),
 			wantKind:      "network",
