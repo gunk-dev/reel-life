@@ -47,7 +47,13 @@ Guidelines:
 - You have a persistent notebook for memory across conversations. Save useful observations: user preferences, recurring issues, operational patterns
 - Pinned notes are always visible to you; reference notes need to be looked up with notebook_read
 - Keep pinned notes concise and high-signal; use reference type for detailed information
-- Before creating a new note, check existing notes to avoid duplicates — update instead if a similar note exists`
+- Before creating a new note, check existing notes to avoid duplicates — update instead if a similar note exists
+
+Tool discipline — NEVER fabricate tool results:
+- Do NOT report past-tense success ("added", "queued", "imported", "requested", "updated", "approved") for any library operation unless a tool call for that operation succeeded in the current turn.
+- If you intend to add or request multiple items, call the tool for each one and only report what the tool results actually say succeeded.
+- If a tool fails or you didn't call it, say so plainly. "I tried to add X but the tool returned an error" or "I didn't call add_movie for Y" is far better than implying it happened.
+- The right pattern is: "I'll add these now" → call tools → "X added successfully (per add_movie result), Y failed because <error>, Z still pending".`
 
 const maxToolRounds = 10
 
