@@ -292,6 +292,34 @@ func TestGetBlocklist(t *testing.T) {
 }
 
 func TestManualSearch(t *testing.T) {
+	// Fixture matches the real Radarr /api/v3/release response shape:
+	// "quality" is a nested object, not a string.
+	const fixture = `[
+		{
+			"guid": "abc123",
+			"title": "Inception.2010.1080p.BluRay.x264",
+			"indexer": "NZBgeek",
+			"indexerId": 3,
+			"quality": {
+				"quality": {
+					"id": 7,
+					"name": "Bluray-1080p",
+					"source": "bluray",
+					"resolution": 1080,
+					"modifier": "none"
+				},
+				"revision": {
+					"version": 1,
+					"real": 0,
+					"isRepack": false
+				}
+			},
+			"size": 5000000000,
+			"age": 2,
+			"rejected": false
+		}
+	]`
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v3/release" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
@@ -299,9 +327,8 @@ func TestManualSearch(t *testing.T) {
 		if r.URL.Query().Get("movieId") != "42" {
 			t.Errorf("movieId = %s, want 42", r.URL.Query().Get("movieId"))
 		}
-		json.NewEncoder(w).Encode([]Release{
-			{GUID: "abc123", Title: "Inception.2010.1080p", Indexer: "NZBgeek", Size: 5000000000},
-		})
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(fixture))
 	}))
 	defer srv.Close()
 
@@ -312,6 +339,16 @@ func TestManualSearch(t *testing.T) {
 	}
 	if len(releases) != 1 || releases[0].GUID != "abc123" {
 		t.Errorf("unexpected releases: %+v", releases)
+	}
+	got := releases[0].Quality.Quality.Name
+	if got != "Bluray-1080p" {
+		t.Errorf("Quality.Quality.Name = %q, want %q", got, "Bluray-1080p")
+	}
+	if releases[0].Quality.Quality.Resolution != 1080 {
+		t.Errorf("Quality.Quality.Resolution = %d, want 1080", releases[0].Quality.Quality.Resolution)
+	}
+	if releases[0].Quality.Revision.Version != 1 {
+		t.Errorf("Quality.Revision.Version = %d, want 1", releases[0].Quality.Revision.Version)
 	}
 }
 
