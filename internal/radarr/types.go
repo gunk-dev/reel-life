@@ -86,11 +86,30 @@ type Release struct {
 	Title      string   `json:"title"`
 	Indexer    string   `json:"indexer"`
 	IndexerID  int      `json:"indexerId"`
-	Quality    string   `json:"quality"`
+	Quality    Quality  `json:"quality"`
 	Size       int64    `json:"size"`
 	Age        int      `json:"age"`
 	Rejected   bool     `json:"rejected"`
 	Rejections []string `json:"rejections,omitempty"`
+}
+
+type Quality struct {
+	Definition QualityDefinition `json:"quality"`
+	Revision   Revision          `json:"revision"`
+}
+
+type QualityDefinition struct {
+	ID         int    `json:"id"`
+	Name       string `json:"name"`
+	Source     string `json:"source"`
+	Resolution int    `json:"resolution"`
+	Modifier   string `json:"modifier"`
+}
+
+type Revision struct {
+	Version  int  `json:"version"`
+	Real     int  `json:"real"`
+	IsRepack bool `json:"isRepack"`
 }
 
 type BlocklistItem struct {

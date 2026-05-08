@@ -231,6 +231,34 @@ func TestGetLogs(t *testing.T) {
 }
 
 func TestManualSearch(t *testing.T) {
+	// Fixture matches the real Sonarr /api/v3/release response shape:
+	// "quality" is a nested object, not a string.
+	const fixture = `[
+		{
+			"guid": "xyz789",
+			"indexerId": 5,
+			"title": "Breaking.Bad.S01E01.720p.HDTV.x264",
+			"indexer": "NZBgeek",
+			"quality": {
+				"quality": {
+					"id": 4,
+					"name": "HDTV-720p",
+					"source": "television",
+					"resolution": 720,
+					"modifier": "none"
+				},
+				"revision": {
+					"version": 1,
+					"real": 0,
+					"isRepack": false
+				}
+			},
+			"size": 1400000000,
+			"age": 1,
+			"rejected": false
+		}
+	]`
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v3/release" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
@@ -238,9 +266,8 @@ func TestManualSearch(t *testing.T) {
 		if r.URL.Query().Get("episodeId") != "42" {
 			t.Errorf("episodeId = %s, want 42", r.URL.Query().Get("episodeId"))
 		}
-		json.NewEncoder(w).Encode([]Release{
-			{Title: "Breaking.Bad.S01E01", Indexer: "NZBgeek", Size: 1400000000},
-		})
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(fixture))
 	}))
 	defer srv.Close()
 
@@ -250,7 +277,17 @@ func TestManualSearch(t *testing.T) {
 		t.Fatalf("ManualSearch() error: %v", err)
 	}
 	if len(releases) != 1 || releases[0].Indexer != "NZBgeek" {
-		t.Errorf("unexpected releases: %+v", releases)
+		t.Fatalf("unexpected releases: %+v", releases)
+	}
+	got := releases[0].Quality.Definition.Name
+	if got != "HDTV-720p" {
+		t.Errorf("Quality.Definition.Name = %q, want %q", got, "HDTV-720p")
+	}
+	if releases[0].Quality.Definition.Resolution != 720 {
+		t.Errorf("Quality.Definition.Resolution = %d, want 720", releases[0].Quality.Definition.Resolution)
+	}
+	if releases[0].Quality.Revision.Version != 1 {
+		t.Errorf("Quality.Revision.Version = %d, want 1", releases[0].Quality.Revision.Version)
 	}
 }
 
