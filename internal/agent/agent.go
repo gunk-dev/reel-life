@@ -53,7 +53,12 @@ Tool discipline — NEVER fabricate tool results:
 - Do NOT report past-tense success ("added", "queued", "imported", "requested", "updated", "approved") for any library operation unless a tool call for that operation succeeded in the current turn.
 - If you intend to add or request multiple items, call the tool for each one and only report what the tool results actually say succeeded.
 - If a tool fails or you didn't call it, say so plainly. "I tried to add X but the tool returned an error" or "I didn't call add_movie for Y" is far better than implying it happened.
-- The right pattern is: "I'll add these now" → call tools → "X added successfully (per add_movie result), Y failed because <error>, Z still pending".`
+- The right pattern is: "I'll add these now" → call tools → "X added successfully (per add_movie result), Y failed because <error>, Z still pending".
+
+Tool errors:
+- Tool results are JSON. When the result has "success": false, treat it as a real failure — do NOT pretend the call succeeded or fabricate output the tool would have produced.
+- Read "error_kind" and "error" to understand what failed. If "retryable" is true you may try the call once more; otherwise report the failure plainly to the user and stop attempting the same operation.
+- If a tool fails repeatedly across a conversation, surface that pattern to the user rather than silently moving on.`
 
 const maxToolRounds = 10
 
@@ -213,8 +218,8 @@ func (a *Agent) Process(ctx context.Context, userMessage string, history []Turn)
 			case anthropic.TextBlock:
 				textResponse += v.Text
 			case anthropic.ToolUseBlock:
-				result, isErr := a.executeToolWithAudit(ctx, v.Name, v.Input, round, reqID)
-				toolResults = append(toolResults, anthropic.NewToolResultBlock(v.ID, result, isErr))
+				tr := a.executeToolWithAudit(ctx, v.Name, v.Input, round, reqID)
+				toolResults = append(toolResults, anthropic.NewToolResultBlock(v.ID, tr.Marshal(), !tr.Success))
 			}
 		}
 
@@ -232,7 +237,7 @@ func (a *Agent) Process(ctx context.Context, userMessage string, history []Turn)
 }
 
 // executeToolWithAudit wraps tool dispatch with rate limiting and audit logging.
-func (a *Agent) executeToolWithAudit(ctx context.Context, name string, rawInput json.RawMessage, round int, reqID string) (string, bool) {
+func (a *Agent) executeToolWithAudit(ctx context.Context, name string, rawInput json.RawMessage, round int, reqID string) ToolResult {
 	// Audit log: invocation
 	a.logger.Info("tool invocation",
 		"tool", name,
@@ -250,24 +255,25 @@ func (a *Agent) executeToolWithAudit(ctx context.Context, name string, rawInput 
 				"round", round,
 				"request_id", reqID,
 			)
-			return jsonError(err.Error()), true
+			return errorResult("rate_limited", err.Error(), true)
 		}
 	}
 
 	start := time.Now()
-	result, isErr := a.dispatchTool(ctx, name, rawInput)
+	result := a.dispatchTool(ctx, name, rawInput)
 	duration := time.Since(start)
 
 	// Audit log: result
 	a.logger.Info("tool result",
 		"tool", name,
-		"success", !isErr,
+		"success", result.Success,
+		"error_kind", result.ErrorKind,
 		"duration_ms", duration.Milliseconds(),
 		"round", round,
 		"request_id", reqID,
 	)
 
-	return result, isErr
+	return result
 }
 
 // sanitizeInput returns a string summary of tool input suitable for logging.
@@ -290,42 +296,51 @@ func sanitizeInput(raw json.RawMessage) string {
 	return string(out)
 }
 
-// dispatchTool executes a tool call and returns the JSON result string and whether it's an error.
-func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.RawMessage) (string, bool) {
-	if result, isErr, handled := a.dispatchSonarr(ctx, name, rawInput); handled {
-		return result, isErr
+// dispatchTool executes a tool call and returns a structured ToolResult.
+// Errors are first-class: classification and retryability are encoded into
+// the result so the agent loop can surface them to the model.
+func (a *Agent) dispatchTool(ctx context.Context, name string, rawInput json.RawMessage) ToolResult {
+	if result, handled := a.dispatchSonarr(ctx, name, rawInput); handled {
+		return result
 	}
-	if result, isErr, handled := a.dispatchRadarr(ctx, name, rawInput); handled {
-		return result, isErr
+	if result, handled := a.dispatchRadarr(ctx, name, rawInput); handled {
+		return result
 	}
-	if result, isErr, handled := a.dispatchProwlarr(ctx, name, rawInput); handled {
-		return result, isErr
+	if result, handled := a.dispatchProwlarr(ctx, name, rawInput); handled {
+		return result
 	}
-	if result, isErr, handled := a.dispatchOverseerr(ctx, name, rawInput); handled {
-		return result, isErr
+	if result, handled := a.dispatchOverseerr(ctx, name, rawInput); handled {
+		return result
 	}
-	if result, isErr, handled := a.dispatchNotebook(ctx, name, rawInput); handled {
-		return result, isErr
+	if result, handled := a.dispatchNotebook(ctx, name, rawInput); handled {
+		return result
 	}
-	return jsonError("unknown tool: " + name), true
+	return errorResult("invalid_input", "unknown tool: "+name, false)
 }
 
 // findIndexer fetches the indexer list from Prowlarr and returns the indexer with the given ID.
-// On failure, it returns a non-empty JSON error string.
-func (a *Agent) findIndexer(ctx context.Context, id int) (*prowlarr.Indexer, string) {
+// On failure, it returns a non-nil ToolResult describing the error.
+func (a *Agent) findIndexer(ctx context.Context, id int) (*prowlarr.Indexer, *ToolResult) {
 	indexers, err := a.prowlarr.ListIndexers(ctx)
 	if err != nil {
-		return nil, jsonError(err.Error())
+		r := errorResultFromErr(err)
+		return nil, &r
 	}
 	for i := range indexers {
 		if indexers[i].ID == id {
-			return &indexers[i], ""
+			return &indexers[i], nil
 		}
 	}
-	return nil, jsonError(fmt.Sprintf("indexer %d not found", id))
+	r := errorResult("not_found", fmt.Sprintf("indexer %d not found", id), false)
+	return nil, &r
 }
 
-func jsonError(msg string) string {
-	data, _ := json.Marshal(map[string]string{"error": msg})
-	return string(data)
+// marshalResult JSON-encodes a tool's success payload, returning a wrapped
+// ToolResult with classified marshal errors on failure.
+func marshalResult(result any) ToolResult {
+	data, err := json.Marshal(result)
+	if err != nil {
+		return errorResult("decode", "failed to marshal result: "+err.Error(), false)
+	}
+	return successResult(string(data))
 }
