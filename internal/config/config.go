@@ -11,17 +11,31 @@ import (
 )
 
 type Config struct {
-	Sonarr    SonarrConfig    `yaml:"sonarr"`
-	Radarr    RadarrConfig    `yaml:"radarr"`
-	Prowlarr  ProwlarrConfig  `yaml:"prowlarr"`
-	Overseerr OverseerrConfig `yaml:"overseerr"`
-	Chat      ChatConfig      `yaml:"chat"`
-	Agent     AgentConfig     `yaml:"agent"`
-	Monitor   MonitorConfig   `yaml:"monitor"`
-	Log       LogConfig       `yaml:"log"`
-	Server    ServerConfig    `yaml:"server"`
-	Notebook  NotebookConfig  `yaml:"notebook"`
-	Location  LocationConfig  `yaml:"location"`
+	Sonarr      SonarrConfig      `yaml:"sonarr"`
+	Radarr      RadarrConfig      `yaml:"radarr"`
+	Prowlarr    ProwlarrConfig    `yaml:"prowlarr"`
+	Overseerr   OverseerrConfig   `yaml:"overseerr"`
+	Chat        ChatConfig        `yaml:"chat"`
+	Agent       AgentConfig       `yaml:"agent"`
+	Monitor     MonitorConfig     `yaml:"monitor"`
+	Log         LogConfig         `yaml:"log"`
+	Server      ServerConfig      `yaml:"server"`
+	Notebook    NotebookConfig    `yaml:"notebook"`
+	Location    LocationConfig    `yaml:"location"`
+	Evidence    EvidenceConfig    `yaml:"evidence"`
+	Remediation RemediationConfig `yaml:"remediation"`
+}
+
+// EvidenceConfig controls the append-only product outcome ledger.
+type EvidenceConfig struct {
+	Path string `yaml:"path"`
+}
+
+// RemediationConfig controls deterministic, allowlisted recovery policies.
+type RemediationConfig struct {
+	Enabled     bool          `yaml:"enabled"`
+	MaxAttempts int           `yaml:"max_attempts"`
+	Cooldown    time.Duration `yaml:"cooldown"`
 }
 
 // LocationConfig holds coordinates and display name for weather lookups.
@@ -109,6 +123,10 @@ func Load(path string) (*Config, error) {
 			Enabled:  true,
 			Interval: 5 * time.Minute,
 		},
+		Remediation: RemediationConfig{
+			MaxAttempts: 1,
+			Cooldown:    time.Hour,
+		},
 		Log: LogConfig{
 			Level:  "info",
 			Format: "text",
@@ -172,6 +190,9 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("HISTORY_PATH"); v != "" {
 		cfg.Agent.HistoryPath = v
 	}
+	if v := os.Getenv("EVIDENCE_PATH"); v != "" {
+		cfg.Evidence.Path = v
+	}
 	if v := os.Getenv("REEL_LIFE_LATITUDE"); v != "" {
 		if lat, err := strconv.ParseFloat(v, 64); err == nil {
 			cfg.Location.Latitude = lat
@@ -202,6 +223,12 @@ func validate(cfg *Config) error {
 	}
 	if cfg.Radarr.BaseURL != "" && cfg.Radarr.APIKey == "" {
 		return fmt.Errorf("radarr.api_key is required when radarr.base_url is set (set RADARR_API_KEY env var)")
+	}
+	if cfg.Remediation.Enabled && !cfg.Monitor.Enabled {
+		return fmt.Errorf("monitor.enabled must be true when remediation is enabled")
+	}
+	if cfg.Remediation.Enabled && cfg.Evidence.Path == "" {
+		return fmt.Errorf("evidence.path is required when remediation is enabled")
 	}
 	// Telegram backend only needs the bot token (checked at startup via env var).
 	if cfg.Chat.Backend == "telegram" {

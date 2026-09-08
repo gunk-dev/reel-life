@@ -20,6 +20,7 @@ type Monitor struct {
 
 	// Track previously seen issues to avoid duplicate alerts.
 	lastIssues map[string]bool
+	remediator interface{ RunOnce(context.Context) }
 }
 
 func New(sonarrClient sonarr.Client, notifier chat.Notifier, interval time.Duration, logger *slog.Logger) *Monitor {
@@ -30,6 +31,11 @@ func New(sonarrClient sonarr.Client, notifier chat.Notifier, interval time.Durat
 		logger:     logger,
 		lastIssues: make(map[string]bool),
 	}
+}
+
+// SetRemediator runs deterministic recovery policies after each health check.
+func (m *Monitor) SetRemediator(remediator interface{ RunOnce(context.Context) }) {
+	m.remediator = remediator
 }
 
 // Run starts the polling loop. Blocks until ctx is cancelled.
@@ -54,6 +60,11 @@ func (m *Monitor) Run(ctx context.Context) error {
 }
 
 func (m *Monitor) check(ctx context.Context) {
+	defer func() {
+		if m.remediator != nil {
+			m.remediator.RunOnce(ctx)
+		}
+	}()
 	checks, err := m.sonarr.Health(ctx)
 	if err != nil {
 		m.logger.Error("health check failed", "error", err)

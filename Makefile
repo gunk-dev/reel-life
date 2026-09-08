@@ -1,4 +1,4 @@
-.PHONY: build test run smoke vet
+.PHONY: build test run smoke vet report
 
 BINARY := reel-life
 BUILD_DIR := bin
@@ -11,6 +11,9 @@ test:
 
 vet:
 	go vet ./...
+
+report:
+	go run ./cmd/reel-life-report -events "$${EVIDENCE_PATH:-events.jsonl}"
 
 # Run locally with dev config. Expects .env file with secrets.
 run: build

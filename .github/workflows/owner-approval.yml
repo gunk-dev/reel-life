@@ -1,0 +1,47 @@
+name: Owner approval gate
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+jobs:
+  approve-current-head:
+    if: github.event.issue.pull_request != null
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - name: Approve the current PR head for promotion
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          APPROVER: ${{ vars.REEL_LIFE_APPROVER || 'patflynn' }}
+        with:
+          script: |
+            const phrase = context.payload.comment.body.trim().toLowerCase();
+            if (phrase !== "i approve") {
+              core.info("Comment is not the approval phrase; no status was created.");
+              return;
+            }
+            if (context.payload.comment.user.login !== process.env.APPROVER) {
+              core.setFailed(`Only ${process.env.APPROVER} can approve promotion.`);
+              return;
+            }
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: pr.head.sha,
+              state: "success",
+              context: "reel-life/owner-approval",
+              description: "Owner approved this exact PR head commit",
+              target_url: context.payload.comment.html_url,
+            });
+            core.info(`Approved PR head ${pr.head.sha}`);

@@ -23,6 +23,17 @@ monitor:
   enabled: true
   interval: 5m
 
+# Append-only, redacted product outcomes for evaluation and learning.
+evidence:
+  path: events.jsonl
+
+# Deterministic allowlisted policies. The first policy removes and blocklists
+# Sonarr queue entries that Sonarr explicitly marks as failed, then verifies it.
+remediation:
+  enabled: false
+  max_attempts: 1
+  cooldown: 1h
+
 log:
   level: info    # debug, info, warn, error
   format: text   # text or json

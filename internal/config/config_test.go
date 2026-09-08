@@ -66,6 +66,9 @@ chat:
 	if !cfg.Monitor.Enabled {
 		t.Error("default Monitor.Enabled = false, want true")
 	}
+	if cfg.Remediation.Enabled || cfg.Remediation.MaxAttempts != 1 || cfg.Remediation.Cooldown.String() != "1h0m0s" {
+		t.Errorf("unexpected remediation defaults: %+v", cfg.Remediation)
+	}
 }
 
 func TestLoadEnvOverrides(t *testing.T) {
@@ -80,6 +83,7 @@ chat:
 
 	t.Setenv("SONARR_API_KEY", "env-key")
 	t.Setenv("GOOGLE_CHAT_WEBHOOK_URL", "https://env.example.com/webhook")
+	t.Setenv("EVIDENCE_PATH", "/tmp/reel-life-events.jsonl")
 
 	cfg, err := Load(path)
 	if err != nil {
@@ -91,6 +95,9 @@ chat:
 	}
 	if cfg.Chat.WebhookURL != "https://env.example.com/webhook" {
 		t.Errorf("Chat.WebhookURL = %q, want env override", cfg.Chat.WebhookURL)
+	}
+	if cfg.Evidence.Path != "/tmp/reel-life-events.jsonl" {
+		t.Errorf("Evidence.Path = %q, want env override", cfg.Evidence.Path)
 	}
 }
 
@@ -128,6 +135,19 @@ sonarr:
   api_key: key
 `,
 			want: "chat.webhook_url or chat.service_account_file + chat.space is required",
+		},
+		{
+			name: "remediation without evidence",
+			yaml: `
+sonarr:
+  base_url: http://sonarr:8989
+  api_key: key
+chat:
+  webhook_url: https://example.com
+remediation:
+  enabled: true
+`,
+			want: "evidence.path is required when remediation is enabled",
 		},
 	}
 
