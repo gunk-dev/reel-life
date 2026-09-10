@@ -10,6 +10,7 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/patflynn/reel-life/internal/events"
 	"github.com/patflynn/reel-life/internal/notebook"
 	"github.com/patflynn/reel-life/internal/overseerr"
 	"github.com/patflynn/reel-life/internal/prowlarr"
@@ -75,6 +76,13 @@ type Agent struct {
 	maxTok    int64
 	logger    *slog.Logger
 	limiter   *RateLimiter
+	events    events.Recorder
+}
+
+// SetEventRecorder enables durable outcome evidence. It is optional so tests
+// and embedded callers do not need persistent storage.
+func (a *Agent) SetEventRecorder(recorder events.Recorder) {
+	a.events = recorder
 }
 
 func New(apiKey string, sonarrClient sonarr.Client, radarrClient radarr.Client, prowlarrClient prowlarr.Client, overseerrClient overseerr.Client, nb notebook.Notebook, weatherClient *weather.Client, model string, maxTokens int, logger *slog.Logger, limiter *RateLimiter) *Agent {
@@ -262,6 +270,28 @@ func (a *Agent) executeToolWithAudit(ctx context.Context, name string, rawInput 
 	start := time.Now()
 	result := a.dispatchTool(ctx, name, rawInput)
 	duration := time.Since(start)
+	if a.events != nil {
+		outcome := "succeeded"
+		if !result.Success {
+			outcome = "failed"
+		}
+		if err := a.events.Record(ctx, events.Event{
+			Type:          "tool.result",
+			CorrelationID: reqID,
+			Component:     "agent",
+			Operation:     name,
+			Outcome:       outcome,
+			DurationMS:    duration.Milliseconds(),
+			ErrorKind:     result.ErrorKind,
+			Attributes: map[string]any{
+				"round":       round,
+				"mutative":    IsMutative(name),
+				"destructive": IsDestructive(name),
+			},
+		}); err != nil {
+			a.logger.Error("failed to record tool evidence", "error", err, "request_id", reqID)
+		}
+	}
 
 	// Audit log: result
 	a.logger.Info("tool result",

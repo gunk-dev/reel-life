@@ -2,6 +2,10 @@
 
 An AI-powered media curation agent for home media servers. reel-life connects Claude to your *arr stack (Sonarr, Radarr, Prowlarr, Overseerr) and communicates through Telegram or Google Chat. It handles natural language requests, proactively monitors service health, and learns your preferences over time through a persistent notebook.
 
+The product mission, measurable outcomes, runtime autonomy limits, and the
+human approval boundary for self-improvement are defined in
+[Mission, outcomes, and autonomy](docs/mission-and-autonomy.md).
+
 Claude operates as a constrained agent: it can only call a defined set of media API tools. No filesystem access, no shell commands, no arbitrary network calls.
 
 ## Architecture
@@ -28,6 +32,7 @@ Claude operates as a constrained agent: it can only call a defined set of media 
 - **Natural language**: "search for Breaking Bad", "what's downloading?", "add that movie", "approve the pending request"
 - **Full *arr stack**: Sonarr (TV), Radarr (movies), Prowlarr (indexers), Overseerr (requests)
 - **Proactive monitoring**: Automatic alerts for health issues, failed downloads, and indexer problems
+- **Verified remediation**: Optional allowlisted recovery of failed Sonarr downloads with bounded attempts, blocklisting, and post-action verification
 - **Conversation history**: Sliding window per chat — the agent remembers context within a conversation
 - **Persistent notebook**: Pinned notes (always in context) and reference notes (on-demand lookup) that persist across restarts
 - **Constrained**: The agent can only call defined media API tools — no filesystem, no shell, no arbitrary network
@@ -114,6 +119,14 @@ notebook:
 monitor:
   enabled: true
   interval: 5m
+
+evidence:
+  path: /var/lib/reel-life/events.jsonl
+
+remediation:
+  enabled: false  # opt in after reviewing docs/mission-and-autonomy.md
+  max_attempts: 1
+  cooldown: 1h
 
 log:
   level: info

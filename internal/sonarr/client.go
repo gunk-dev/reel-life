@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 // Client defines the operations available against a Sonarr instance.
@@ -47,7 +48,7 @@ func NewClient(baseURL, apiKey string) *HTTPClient {
 	return &HTTPClient{
 		baseURL:    baseURL,
 		apiKey:     apiKey,
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}
 }
 

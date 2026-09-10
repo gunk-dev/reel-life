@@ -13,11 +13,13 @@ import (
 	"github.com/patflynn/reel-life/internal/agent"
 	"github.com/patflynn/reel-life/internal/chat"
 	"github.com/patflynn/reel-life/internal/config"
+	"github.com/patflynn/reel-life/internal/events"
 	"github.com/patflynn/reel-life/internal/monitor"
 	"github.com/patflynn/reel-life/internal/notebook"
 	"github.com/patflynn/reel-life/internal/overseerr"
 	"github.com/patflynn/reel-life/internal/prowlarr"
 	"github.com/patflynn/reel-life/internal/radarr"
+	"github.com/patflynn/reel-life/internal/remediation"
 	"github.com/patflynn/reel-life/internal/sonarr"
 	"github.com/patflynn/reel-life/internal/weather"
 )
@@ -168,7 +170,13 @@ func main() {
 		logger.Info("weather context enabled", "location", cfg.Location.Name)
 	}
 
+	var eventRecorder events.Recorder
+	if cfg.Evidence.Path != "" {
+		eventRecorder = events.NewFileRecorder(cfg.Evidence.Path)
+		logger.Info("product evidence ledger enabled", "path", cfg.Evidence.Path)
+	}
 	agentInstance := agent.New(anthropicKey, sonarrClient, radarrClient, prowlarrClient, overseerrClient, nb, weatherClient, cfg.Agent.Model, cfg.Agent.MaxTokens, logger, limiter)
+	agentInstance.SetEventRecorder(eventRecorder)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -176,6 +184,10 @@ func main() {
 	// Start monitor loop
 	if cfg.Monitor.Enabled {
 		mon := monitor.New(sonarrClient, notifier, cfg.Monitor.Interval, logger)
+		if cfg.Remediation.Enabled {
+			mon.SetRemediator(remediation.New(sonarrClient, notifier, eventRecorder, logger, cfg.Remediation.MaxAttempts, cfg.Remediation.Cooldown))
+			logger.Info("automatic remediation enabled", "max_attempts", cfg.Remediation.MaxAttempts, "cooldown", cfg.Remediation.Cooldown)
+		}
 		go func() {
 			if err := mon.Run(ctx); err != nil && ctx.Err() == nil {
 				logger.Error("monitor error", "error", err)

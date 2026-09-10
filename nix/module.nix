@@ -183,6 +183,30 @@ in
       description = "Path for persistent notebook storage";
     };
 
+    evidencePath = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Path for the append-only, redacted product evidence ledger";
+    };
+
+    remediationEnabled = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Enable deterministic, allowlisted automatic remediation policies";
+    };
+
+    remediationMaxAttempts = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 1;
+      description = "Maximum automatic attempts per incident";
+    };
+
+    remediationCooldown = lib.mkOption {
+      type = lib.types.str;
+      default = "1h";
+      description = "Cooldown between automatic remediation attempts";
+    };
+
     locationName = lib.mkOption {
       type = lib.types.str;
       default = "";
@@ -225,6 +249,17 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = !cfg.remediationEnabled || cfg.monitorEnabled;
+        message = "services.reel-life.monitorEnabled must be true when remediationEnabled is true";
+      }
+      {
+        assertion = !cfg.remediationEnabled || cfg.evidencePath != "";
+        message = "services.reel-life.evidencePath is required when remediationEnabled is true";
+      }
+    ];
+
     environment.etc."reel-life/config.yaml".text = builtins.toJSON ({
       sonarr = { base_url = cfg.sonarrUrl; };
       chat = {
@@ -245,6 +280,11 @@ in
         enabled = cfg.monitorEnabled;
         interval = cfg.monitorInterval;
       };
+      remediation = {
+        enabled = cfg.remediationEnabled;
+        max_attempts = cfg.remediationMaxAttempts;
+        cooldown = cfg.remediationCooldown;
+      };
       log = {
         level = cfg.logLevel;
         format = cfg.logFormat;
@@ -264,6 +304,8 @@ in
       } // lib.optionalAttrs (cfg.notebookPath != "") {
         path = cfg.notebookPath;
       };
+    } // lib.optionalAttrs (cfg.evidencePath != "") {
+      evidence = { path = cfg.evidencePath; };
     } // lib.optionalAttrs (cfg.locationName != "") {
       location = {
         name = cfg.locationName;
@@ -294,7 +336,8 @@ in
         PrivateDevices = true;
         ReadWritePaths =
           lib.optional (cfg.notebookPath != "") (builtins.dirOf cfg.notebookPath)
-          ++ lib.optional (cfg.agentHistoryPath != "") (builtins.dirOf cfg.agentHistoryPath);
+          ++ lib.optional (cfg.agentHistoryPath != "") (builtins.dirOf cfg.agentHistoryPath)
+          ++ lib.optional (cfg.evidencePath != "") (builtins.dirOf cfg.evidencePath);
 
         # Kernel: block access to tunables, modules, logs, cgroups, clock, hostname
         ProtectKernelTunables = true;
