@@ -74,6 +74,19 @@ Approval is scoped to the current pull-request head commit. A new commit makes
 the approval stale and requires a new approval comment. Approval does not waive
 CI, evaluation, security, canary, or rollback gates.
 
+After an approved change reaches `main`, `Notify Cosmo` sends a
+`reel-life-updated` repository dispatch to `patflynn/cosmo`. Cosmo opens a
+reel-life-only lock update, waits for CI, merges it, and deploys through its
+existing convergence service. These dependency-only promotions do not require
+a second approval comment. Changes to host configuration still require review.
+
+The notifier requires the Actions secret `COSMO_DISPATCH_TOKEN`, authorized to
+dispatch to `patflynn/cosmo`, matching the klaus/the-valley integration. Install
+cosmo's receiving workflow before merging the notifier. A manual `Notify Cosmo`
+run can retry a missed notification after credentials are configured. The daily
+cosmo lock updater remains the fallback. A failed notification does not undo
+the approved application merge.
+
 The `reel-life/owner-approval` commit status implements this boundary. Configure
 it as a required branch-protection check. The approving GitHub login defaults
 to `patflynn` and can be changed with the `REEL_LIFE_APPROVER` repository
