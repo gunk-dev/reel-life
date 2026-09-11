@@ -10,6 +10,7 @@ permissions: {}
 jobs:
   notify:
     runs-on: ubuntu-latest
+    environment: automation
     timeout-minutes: 5
     steps:
       - name: Dispatch to cosmo

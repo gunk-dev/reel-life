@@ -80,7 +80,8 @@ reel-life-only lock update, waits for CI, merges it, and deploys through its
 existing convergence service. These dependency-only promotions do not require
 a second approval comment. Changes to host configuration still require review.
 
-The notifier requires the Actions secret `COSMO_DISPATCH_TOKEN`, authorized to
+The notifier uses the `automation` environment and requires its Actions secret
+`COSMO_DISPATCH_TOKEN`, authorized to
 dispatch to `patflynn/cosmo`, matching the klaus/the-valley integration. Install
 cosmo's receiving workflow before merging the notifier. A manual `Notify Cosmo`
 run can retry a missed notification after credentials are configured. The daily
