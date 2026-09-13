@@ -30,11 +30,16 @@ type Runner struct {
 	maxAttempts int
 	cooldown    time.Duration
 
+	// Serialize detection as well as mutation so another poll cannot act on
+	// a stale queue snapshot after an earlier poll completes.
 	mu       sync.Mutex
 	attempts map[string]int
 	lastTry  map[string]time.Time
+	blocked  map[string]bool
 }
 
+// New constructs an in-memory runner for isolated use and tests. Production
+// callers must use NewPersistent so prior attempt reservations are restored.
 func New(sonarrClient sonarrQueueClient, notifier chat.Notifier, recorder events.Recorder, logger *slog.Logger, maxAttempts int, cooldown time.Duration) *Runner {
 	if maxAttempts <= 0 {
 		maxAttempts = 1
@@ -42,12 +47,17 @@ func New(sonarrClient sonarrQueueClient, notifier chat.Notifier, recorder events
 	return &Runner{
 		sonarr: sonarrClient, notifier: notifier, events: recorder, logger: logger,
 		maxAttempts: maxAttempts, cooldown: cooldown,
-		attempts: make(map[string]int), lastTry: make(map[string]time.Time),
+		attempts: make(map[string]int), lastTry: make(map[string]time.Time), blocked: make(map[string]bool),
 	}
 }
 
 // RunOnce evaluates the current queue and remediates eligible failed downloads.
 func (r *Runner) RunOnce(ctx context.Context) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if ctx.Err() != nil {
+		return
+	}
 	queue, err := r.sonarr.Queue(ctx)
 	if err != nil {
 		r.record(ctx, events.Event{Type: "remediation.detection", Component: "remediation", Operation: failedDownloadPolicy, Outcome: "failed", ErrorKind: "dependency"})
@@ -71,15 +81,26 @@ func isFailed(item sonarr.QueueItem) bool {
 func (r *Runner) remediateFailedDownload(ctx context.Context, item sonarr.QueueItem) {
 	incidentKey := fmt.Sprintf("sonarr.queue.%d", item.ID)
 	attrs := map[string]any{"incident_key": incidentKey, "queue_id": item.ID, "series_id": item.SeriesID}
-	r.record(ctx, events.Event{Type: "remediation.detected", CorrelationID: incidentKey, Component: "remediation", Operation: failedDownloadPolicy, Outcome: "eligible", Attributes: attrs})
+	if !r.record(ctx, events.Event{Type: "remediation.detected", CorrelationID: incidentKey, Component: "remediation", Operation: failedDownloadPolicy, Outcome: "eligible", Attributes: attrs}) {
+		return
+	}
 
 	if !r.allowAttempt(incidentKey) {
 		return
 	}
-	r.record(ctx, events.Event{Type: "remediation.planned", CorrelationID: incidentKey, Component: "remediation", Operation: failedDownloadPolicy, Outcome: "approved_by_policy", Attributes: attrs})
+	// The durable plan reserves the attempt before sending any HTTP mutation.
+	// Keep it blocked if the write fails: even a failed write may have reached
+	// disk, so neither this process nor a restarted one may assume it did not.
+	if !r.record(ctx, events.Event{Type: "remediation.planned", Timestamp: r.lastTry[incidentKey], CorrelationID: incidentKey, Component: "remediation", Operation: failedDownloadPolicy, Outcome: "approved_by_policy", Attributes: attrs}) {
+		return
+	}
 
 	if err := r.sonarr.RemoveFailed(ctx, item.ID, true); err != nil {
-		r.record(ctx, events.Event{Type: "remediation.action", CorrelationID: incidentKey, Component: "remediation", Operation: failedDownloadPolicy, Outcome: "failed", ErrorKind: "dependency", Attributes: attrs})
+		if r.record(ctx, events.Event{Type: "remediation.action", CorrelationID: incidentKey, Component: "remediation", Operation: failedDownloadPolicy, Outcome: "failed", ErrorKind: "dependency", Attributes: attrs}) {
+			// Recorded action failures retain the configured retry budget and
+			// cooldown. Missing outcomes and failed verification stay blocked.
+			r.blocked[incidentKey] = false
+		}
 		r.escalate(ctx, incidentKey, fmt.Sprintf("I couldn't remove and blocklist failed Sonarr download %q (queue %d): %v", item.Title, item.ID, err), attrs)
 		return
 	}
@@ -98,7 +119,6 @@ func (r *Runner) remediateFailedDownload(ctx context.Context, item sonarr.QueueI
 	}
 
 	r.record(ctx, events.Event{Type: "remediation.verified", CorrelationID: incidentKey, Component: "remediation", Operation: failedDownloadPolicy, Outcome: "resolved", Attributes: attrs})
-	r.clearAttempt(incidentKey)
 	msg := fmt.Sprintf("✅ Automatically resolved failed Sonarr download %q (queue %d): removed it, added the release to the blocklist, and verified the queue entry is gone.", item.Title, item.ID)
 	if err := r.notifier.SendAdmin(ctx, msg, incidentKey); err != nil {
 		r.logger.Error("failed to send remediation result", "error", err, "incident_key", incidentKey)
@@ -106,9 +126,7 @@ func (r *Runner) remediateFailedDownload(ctx context.Context, item sonarr.QueueI
 }
 
 func (r *Runner) allowAttempt(key string) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.attempts[key] >= r.maxAttempts {
+	if r.blocked[key] || r.attempts[key] >= r.maxAttempts {
 		return false
 	}
 	if last := r.lastTry[key]; !last.IsZero() && time.Since(last) < r.cooldown {
@@ -116,14 +134,8 @@ func (r *Runner) allowAttempt(key string) bool {
 	}
 	r.attempts[key]++
 	r.lastTry[key] = time.Now()
+	r.blocked[key] = true
 	return true
-}
-
-func (r *Runner) clearAttempt(key string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	delete(r.attempts, key)
-	delete(r.lastTry, key)
 }
 
 func (r *Runner) escalate(ctx context.Context, key, message string, attrs map[string]any) {
@@ -133,11 +145,14 @@ func (r *Runner) escalate(ctx context.Context, key, message string, attrs map[st
 	}
 }
 
-func (r *Runner) record(ctx context.Context, event events.Event) {
+func (r *Runner) record(ctx context.Context, event events.Event) bool {
 	if r.events == nil {
-		return
+		r.logger.Error("remediation requires an evidence recorder", "operation", event.Operation)
+		return false
 	}
 	if err := r.events.Record(ctx, event); err != nil {
 		r.logger.Error("failed to record remediation evidence", "error", err, "operation", event.Operation)
+		return false
 	}
+	return true
 }

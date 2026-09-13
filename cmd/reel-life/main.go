@@ -171,8 +171,10 @@ func main() {
 	}
 
 	var eventRecorder events.Recorder
+	var fileRecorder *events.FileRecorder
 	if cfg.Evidence.Path != "" {
-		eventRecorder = events.NewFileRecorder(cfg.Evidence.Path)
+		fileRecorder = events.NewFileRecorder(cfg.Evidence.Path)
+		eventRecorder = fileRecorder
 		logger.Info("product evidence ledger enabled", "path", cfg.Evidence.Path)
 	}
 	agentInstance := agent.New(anthropicKey, sonarrClient, radarrClient, prowlarrClient, overseerrClient, nb, weatherClient, cfg.Agent.Model, cfg.Agent.MaxTokens, logger, limiter)
@@ -185,7 +187,12 @@ func main() {
 	if cfg.Monitor.Enabled {
 		mon := monitor.New(sonarrClient, notifier, cfg.Monitor.Interval, logger)
 		if cfg.Remediation.Enabled {
-			mon.SetRemediator(remediation.New(sonarrClient, notifier, eventRecorder, logger, cfg.Remediation.MaxAttempts, cfg.Remediation.Cooldown))
+			runner, err := remediation.NewPersistent(sonarrClient, notifier, fileRecorder, logger, cfg.Remediation.MaxAttempts, cfg.Remediation.Cooldown)
+			if err != nil {
+				logger.Error("cannot safely restore automatic remediation", "error", err)
+				os.Exit(1)
+			}
+			mon.SetRemediator(runner)
 			logger.Info("automatic remediation enabled", "max_attempts", cfg.Remediation.MaxAttempts, "cooldown", cfg.Remediation.Cooldown)
 		}
 		go func() {

@@ -2,6 +2,8 @@
 package events
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -43,6 +45,49 @@ type FileRecorder struct {
 }
 
 func NewFileRecorder(path string) *FileRecorder { return &FileRecorder{path: path} }
+
+// Replay reads complete ledger entries under the recorder's lock. Unlike an
+// analytics report, recovery must reject damaged or unsupported history rather
+// than silently forget an action. A missing file represents a first run.
+// The visitor must not call back into this recorder while the lock is held.
+func (r *FileRecorder) Replay(visit func(Event) error) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	f, err := os.Open(r.path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("open event ledger for recovery: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+	scanner.Split(func(data []byte, atEOF bool) (int, []byte, error) {
+		if atEOF && len(data) > 0 && !bytes.ContainsRune(data, '\n') {
+			return 0, nil, fmt.Errorf("unterminated ledger entry")
+		}
+		return bufio.ScanLines(data, atEOF)
+	})
+	line := 0
+	for scanner.Scan() {
+		line++
+		var event Event
+		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
+			return fmt.Errorf("decode ledger entry %d: %w", line, err)
+		}
+		if event.SchemaVersion != SchemaVersion || event.Type == "" {
+			return fmt.Errorf("invalid or unsupported ledger entry %d", line)
+		}
+		if err := visit(event); err != nil {
+			return fmt.Errorf("recover ledger entry %d: %w", line, err)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("read ledger after entry %d: %w", line, err)
+	}
+	return nil
+}
 
 func (r *FileRecorder) Record(ctx context.Context, event Event) error {
 	if err := ctx.Err(); err != nil {

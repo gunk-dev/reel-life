@@ -268,5 +268,112 @@
         91
       ]
     }
+  },
+  {
+    "name": "restart_preserves_attempt_limit",
+    "queue": [
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "broken.release",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "polls": 3,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "delete_status": 503,
+    "want": {
+      "deletes": 1,
+      "detected": 1,
+      "resolved": 0,
+      "escalated": 1,
+      "messages": [
+        "couldn't remove"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:failed",
+        "remediation.verification:escalated",
+        "remediation.detected:eligible",
+        "remediation.detected:eligible"
+      ],
+      "remaining_ids": [
+        91
+      ]
+    },
+    "restart_after": 1
+  },
+  {
+    "name": "restart_preserves_cooldown",
+    "queue": [
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "broken.release",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "polls": 3,
+    "max_attempts": 3,
+    "cooldown": "1h",
+    "delete_status": 503,
+    "want": {
+      "deletes": 1,
+      "detected": 1,
+      "resolved": 0,
+      "escalated": 1,
+      "messages": [
+        "couldn't remove"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:failed",
+        "remediation.verification:escalated",
+        "remediation.detected:eligible",
+        "remediation.detected:eligible"
+      ],
+      "remaining_ids": [
+        91
+      ]
+    },
+    "restart_after": 1
+  },
+  {
+    "name": "restart_blocks_failed_verification",
+    "queue": [
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "broken.release",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "polls": 2,
+    "max_attempts": 3,
+    "cooldown": "0s",
+    "retain_deleted": true,
+    "want": {
+      "deletes": 1,
+      "detected": 1,
+      "resolved": 0,
+      "escalated": 1,
+      "messages": [
+        "it is still present"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:executed",
+        "remediation.verification:escalated",
+        "remediation.detected:eligible"
+      ],
+      "remaining_ids": [
+        91
+      ]
+    },
+    "restart_after": 1
   }
 ]

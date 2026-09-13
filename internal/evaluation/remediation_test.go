@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -21,6 +22,7 @@ import (
 )
 
 type scenario struct {
+	RestartAfter  int                `json:"restart_after,omitempty"`
 	Name          string             `json:"name"`
 	Queue         []sonarr.QueueItem `json:"queue"`
 	Polls         int                `json:"polls"`
@@ -99,9 +101,24 @@ func TestFrozenRemediation(t *testing.T) {
 			client := sonarr.NewClient(stack.URL(), "evaluation-key")
 			evidence := &recorder{}
 			notifications := &notifier{}
-			runner := remediation.New(client, notifications, evidence, slog.New(slog.NewTextHandler(io.Discard, nil)), tc.MaxAttempts, cooldown)
+			fileRecorder := events.NewFileRecorder(filepath.Join(t.TempDir(), "events.jsonl"))
+			newRunner := func() *remediation.Runner {
+				t.Helper()
+				runner, err := remediation.NewPersistent(client, notifications, fileRecorder, slog.New(slog.NewTextHandler(io.Discard, nil)), tc.MaxAttempts, cooldown)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return runner
+			}
+			runner := newRunner()
 			for i := 0; i < tc.Polls; i++ {
 				runner.RunOnce(context.Background())
+				if tc.RestartAfter == i+1 {
+					runner = newRunner()
+				}
+			}
+			if err := fileRecorder.Replay(func(event events.Event) error { return evidence.Record(context.Background(), event) }); err != nil {
+				t.Fatal(err)
 			}
 			deletes, blocklisted := stack.DeleteResult()
 			if deletes != tc.Want.Deletes {

@@ -51,6 +51,30 @@ The runtime must:
 - notify the operator of the action and its verified outcome;
 - never infer success merely because an API call returned without error.
 
+### Restart recovery
+
+When remediation is enabled, startup replays `evidence.path` before the monitor
+starts. A saved `remediation.planned` event reserves an attempt before the HTTP
+action. Attempt counts and cooldown timestamps survive process restarts.
+Recorded action failures can use the remaining configured retry budget after
+the cooldown; an interrupted attempt, an executed action with failed or missing
+verification, and a verified incident remain blocked from automatic re-execution.
+Overlapping polls in one runner are serialized from detection through completion.
+
+If detection or plan evidence cannot be written, the action does not run.
+Malformed, incomplete, unsupported, or unreadable history prevents startup with
+remediation enabled. Restore the complete ledger from a trusted backup, or set
+`remediation.enabled: false` to run chat and monitoring while investigating.
+Do not delete or trim evidence to make recovery succeed: doing so loses the
+attempt history. A missing ledger is treated as a first run.
+
+The ledger is now recovery state as well as analytics evidence. Keep its complete
+history at the same path across updates, and use one process to own automatic
+remediation for a Sonarr stack. This does not provide coordination between
+multiple processes or hosts, or deduplication of separate chat-issued actions.
+Interrupted incidents require operator investigation; automatic reconciliation
+and notification redelivery are not implemented yet.
+
 Automatic policies must not delete media, remove a series or movie, approve or
 decline a request, delete an indexer, weaken authentication, change credentials,
 or expand their own permissions. Those actions require an explicit user action.
@@ -103,9 +127,9 @@ scenario uses an in-process simulated Sonarr API and the real
 HTTP client, remediation runner, and evidence report. No credentials, external
 services, or model calls are needed.
 
-The baseline covers healthy and ambiguous queue entries, verified recovery,
+The twelve-scenario baseline covers healthy and ambiguous queue entries, verified recovery,
 dependency outages, ineffective deletes, verification outages, attempt limits,
-and cooldowns. Expected mutations, remaining queue IDs, notification fragments,
+cooldowns, and restart recovery. Expected mutations, remaining queue IDs, notification fragments,
 event transitions, and incident totals are explicit in each fixture. New
 regressions should become new scenarios. Changes to existing expectations need
 a documented behavior change and review; do not regenerate expectations from
@@ -119,9 +143,11 @@ identity retain per-event counting. Tool results and the total event count
 remain per-event counts. Queue-ID reuse across distinct incidents is not yet
 distinguished by the runtime's incident identity.
 
-This is the first deterministic baseline, not evidence that production targets
-have been met. Restart-safe idempotency, paginated queue verification, evidence
-write failures, and notification delivery failures still need dedicated gates.
+This is a deterministic baseline, not evidence that production targets have been
+met. Additional recovery tests cover interrupted ledger transitions, overlapping
+polls, damaged history, and failed pre-action evidence writes. Paginated queue
+verification, interrupted-incident reconciliation, and notification delivery
+failures still need dedicated gates.
 
 ## Production testing
 
