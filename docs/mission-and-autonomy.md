@@ -94,6 +94,35 @@ to `patflynn` and can be changed with the `REEL_LIFE_APPROVER` repository
 variable. Run `make report` (optionally with
 `EVIDENCE_PATH=/path/to/events.jsonl`) to summarize current outcome evidence.
 
+### Evaluation gate
+
+Run `make eval` to exercise the versioned scenarios in
+`internal/evaluation/testdata/remediation-v1.json`. CI runs these as the
+`evaluation` job and as part of the existing required `test` job. Each
+scenario uses an in-process simulated Sonarr API and the real
+HTTP client, remediation runner, and evidence report. No credentials, external
+services, or model calls are needed.
+
+The baseline covers healthy and ambiguous queue entries, verified recovery,
+dependency outages, ineffective deletes, verification outages, attempt limits,
+and cooldowns. Expected mutations, remaining queue IDs, notification fragments,
+event transitions, and incident totals are explicit in each fixture. New
+regressions should become new scenarios. Changes to existing expectations need
+a documented behavior change and review; do not regenerate expectations from
+the implementation merely to make tests pass.
+
+The report counts unique incidents per policy and correlation ID, with
+`attributes.incident_key` as a fallback. Repeated polls do not inflate incident
+totals. Resolved and escalated counts are independent: an incident can appear
+in both if it resolves after escalation. Legacy records without incident
+identity retain per-event counting. Tool results and the total event count
+remain per-event counts. Queue-ID reuse across distinct incidents is not yet
+distinguished by the runtime's incident identity.
+
+This is the first deterministic baseline, not evidence that production targets
+have been met. Restart-safe idempotency, paginated queue verification, evidence
+write failures, and notification delivery failures still need dedicated gates.
+
 ## Production testing
 
 The production media stack currently has no users and may be used for bounded

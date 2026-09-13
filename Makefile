@@ -1,4 +1,4 @@
-.PHONY: build test run smoke vet report
+.PHONY: build test eval run smoke vet report
 
 BINARY := reel-life
 BUILD_DIR := bin
@@ -8,6 +8,9 @@ build:
 
 test:
 	go test ./...
+
+eval:
+	go test -count=1 -v ./internal/evaluation -run '^TestFrozenRemediation$$'
 
 vet:
 	go vet ./...
