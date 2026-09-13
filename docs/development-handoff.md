@@ -17,28 +17,35 @@ Verified against GitHub on 2026-09-13:
   deterministic Sonarr simulator, and owner approval gate.
 - PR #52: notify cosmo when reel-life updates merge.
 - PR #53: redact Telegram tokens from HTTP errors.
+- PR #54: frozen remediation evaluations, CI gate, and unique incident counts.
 
-The earlier session reported evidence collection and five-minute remediation
-running on laddie. That is historical context, not a fresh production check.
+Reel-life was active on laddie during a read-only check on 2026-09-13. A production
+evidence snapshot was not obtained because sudo required authentication. The
+GitHub CI and cosmo notification runs for the PR #54 merge both succeeded; this
+does not by itself verify which binary laddie is running.
 
 ## Current increment
 
-Branch: `feat/remediation-evaluation-gate`.
+Branch: `fix/durable-remediation-attempts`.
 
-Adds nine frozen remediation scenarios, `make eval`, a visible CI evaluation
-job, and incident deduplication in the evidence report. Repeated polling of one
-failed queue item now counts as one incident. The suite also runs under the
-existing required `test` check.
+Restores attempt reservations and cooldowns from the existing evidence ledger.
+Interrupted, unverified, and completed actions remain blocked from automatic
+re-execution. Serializes overlapping polls, requires saved pre-action evidence,
+and rejects unsafe recovery history. Extends the frozen evaluation suite to
+twelve scenarios and adds crash-boundary, concurrency, and failed-write tests.
+No new deployment setting is required, but the complete evidence ledger must
+be retained because it now holds recovery state.
 
 ## Next increments
 
 1. Take a read-only production evidence snapshot and use the report to choose
    the next failure to address. Keep credentials and raw user text out of fixtures.
-2. Persist remediation attempts across restarts; test crash recovery and
-   concurrent polling so retries cannot duplicate mutations.
-3. Verify absence across paginated queues; stop when verification is incomplete.
-4. Fail closed when durable pre-action evidence cannot be recorded, and track
+2. Verify absence across paginated queues; stop when verification is incomplete.
+3. Reconcile interrupted incidents through read-only checks, and track
    notification delivery separately from the media action's outcome.
+4. Design bounded ledger retention/compaction that preserves attempt state and
+   incident identity across queue-ID reuse. Multi-process coordination remains
+   outside the current single-owner deployment model.
 5. Turn observed failures into reviewed evaluation cases and focused draft PRs.
    Expand remediation policies only after these reliability gaps are covered.
 
