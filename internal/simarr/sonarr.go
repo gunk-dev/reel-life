@@ -20,6 +20,8 @@ type Sonarr struct {
 	deleteStatus  int
 	deleteCount   int
 	lastBlocklist bool
+	queueStatuses []int
+	retainDeleted bool
 }
 
 func NewSonarr(queue []sonarr.QueueItem) *Sonarr {
@@ -38,6 +40,21 @@ func (s *Sonarr) FailDeletes(status int) {
 	s.deleteStatus = status
 }
 
+// QueueStatuses scripts HTTP responses for successive queue reads. Zero means
+// a normal response; after the script is exhausted, normal responses resume.
+func (s *Sonarr) QueueStatuses(statuses ...int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.queueStatuses = append([]int(nil), statuses...)
+}
+
+// RetainDeleted simulates a successful delete response with no state change.
+func (s *Sonarr) RetainDeleted() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.retainDeleted = true
+}
+
 func (s *Sonarr) DeleteResult() (count int, blocklist bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -51,6 +68,14 @@ func (s *Sonarr) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == "/api/v3/queue":
+		if len(s.queueStatuses) > 0 {
+			status := s.queueStatuses[0]
+			s.queueStatuses = s.queueStatuses[1:]
+			if status != 0 {
+				http.Error(w, "injected queue failure", status)
+				return
+			}
+		}
 		_ = json.NewEncoder(w).Encode(sonarr.QueuePage{Page: 1, PageSize: len(s.queue), TotalRecords: len(s.queue), Records: s.queue})
 	case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/v3/queue/"):
 		s.deleteCount++
@@ -66,7 +91,9 @@ func (s *Sonarr) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		for i, item := range s.queue {
 			if item.ID == id {
-				s.queue = append(s.queue[:i], s.queue[i+1:]...)
+				if !s.retainDeleted {
+					s.queue = append(s.queue[:i], s.queue[i+1:]...)
+				}
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}

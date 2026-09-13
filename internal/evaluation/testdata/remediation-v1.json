@@ -1,0 +1,272 @@
+[
+  {
+    "name": "empty_queue",
+    "queue": [],
+    "polls": 1,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "want": {
+      "deletes": 0,
+      "detected": 0,
+      "resolved": 0,
+      "escalated": 0,
+      "messages": null,
+      "events": null,
+      "remaining_ids": []
+    }
+  },
+  {
+    "name": "healthy_download_is_untouched",
+    "queue": [
+      {
+        "id": 92,
+        "status": "downloading",
+        "trackedDownloadStatus": "ok"
+      }
+    ],
+    "polls": 1,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "want": {
+      "deletes": 0,
+      "detected": 0,
+      "resolved": 0,
+      "escalated": 0,
+      "messages": null,
+      "events": null,
+      "remaining_ids": [
+        92
+      ]
+    }
+  },
+  {
+    "name": "ambiguous_warning_is_untouched",
+    "queue": [
+      {
+        "id": 93,
+        "status": "completed",
+        "trackedDownloadStatus": "warning",
+        "trackedDownloadState": "importBlocked"
+      }
+    ],
+    "polls": 1,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "want": {
+      "deletes": 0,
+      "detected": 0,
+      "resolved": 0,
+      "escalated": 0,
+      "messages": null,
+      "events": null,
+      "remaining_ids": [
+        93
+      ]
+    }
+  },
+  {
+    "name": "verified_recovery_preserves_healthy_download",
+    "queue": [
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "broken.release",
+        "trackedDownloadState": "downloadFailed"
+      },
+      {
+        "id": 92,
+        "status": "downloading",
+        "trackedDownloadStatus": "ok"
+      }
+    ],
+    "polls": 3,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "want": {
+      "deletes": 1,
+      "detected": 1,
+      "resolved": 1,
+      "escalated": 0,
+      "messages": [
+        "verified the queue entry is gone"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:executed",
+        "remediation.verified:resolved"
+      ],
+      "remaining_ids": [
+        92
+      ]
+    }
+  },
+  {
+    "name": "delete_failure_stops_at_attempt_limit",
+    "queue": [
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "broken.release",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "polls": 3,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "delete_status": 503,
+    "want": {
+      "deletes": 1,
+      "detected": 1,
+      "resolved": 0,
+      "escalated": 1,
+      "messages": [
+        "couldn't remove"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:failed",
+        "remediation.verification:escalated",
+        "remediation.detected:eligible",
+        "remediation.detected:eligible"
+      ],
+      "remaining_ids": [
+        91
+      ]
+    }
+  },
+  {
+    "name": "cooldown_prevents_immediate_retry",
+    "queue": [
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "broken.release",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "polls": 3,
+    "max_attempts": 3,
+    "cooldown": "1h",
+    "delete_status": 503,
+    "want": {
+      "deletes": 1,
+      "detected": 1,
+      "resolved": 0,
+      "escalated": 1,
+      "messages": [
+        "couldn't remove"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:failed",
+        "remediation.verification:escalated",
+        "remediation.detected:eligible",
+        "remediation.detected:eligible"
+      ],
+      "remaining_ids": [
+        91
+      ]
+    }
+  },
+  {
+    "name": "successful_http_response_is_not_proof",
+    "queue": [
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "broken.release",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "polls": 2,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "retain_deleted": true,
+    "want": {
+      "deletes": 1,
+      "detected": 1,
+      "resolved": 0,
+      "escalated": 1,
+      "messages": [
+        "it is still present"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:executed",
+        "remediation.verification:escalated",
+        "remediation.detected:eligible"
+      ],
+      "remaining_ids": [
+        91
+      ]
+    }
+  },
+  {
+    "name": "verification_outage_is_not_resolution",
+    "queue": [
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "broken.release",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "polls": 1,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "queue_statuses": [
+      0,
+      503
+    ],
+    "want": {
+      "deletes": 1,
+      "detected": 1,
+      "resolved": 0,
+      "escalated": 1,
+      "messages": [
+        "could not verify"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:executed",
+        "remediation.verification:escalated"
+      ],
+      "remaining_ids": []
+    }
+  },
+  {
+    "name": "detection_outage_cannot_mutate",
+    "queue": [
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "broken.release",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "polls": 1,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "queue_statuses": [
+      503
+    ],
+    "want": {
+      "deletes": 0,
+      "detected": 0,
+      "resolved": 0,
+      "escalated": 0,
+      "messages": null,
+      "events": [
+        "remediation.detection:failed"
+      ],
+      "remaining_ids": [
+        91
+      ]
+    }
+  }
+]

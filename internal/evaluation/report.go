@@ -31,6 +31,26 @@ type Report struct {
 func Build(input io.Reader) (Report, error) {
 	var report Report
 	operations := make(map[string]*Operation)
+	// Polls and replayed ledger entries are observations of the same incident.
+	// Keep each outcome category independent: an escalated incident can later
+	// resolve, and both facts should remain visible in the report.
+	seen := make(map[[3]string]bool)
+	countIncident := func(event events.Event) bool {
+		key := event.CorrelationID
+		if key == "" {
+			key, _ = event.Attributes["incident_key"].(string)
+		}
+		if key == "" {
+			// Legacy events without identity cannot safely be deduplicated.
+			return true
+		}
+		identity := [3]string{event.Operation, key, event.Type}
+		if seen[identity] {
+			return false
+		}
+		seen[identity] = true
+		return true
+	}
 	scanner := bufio.NewScanner(input)
 	buffer := make([]byte, 64*1024)
 	scanner.Buffer(buffer, 1024*1024)
@@ -55,13 +75,15 @@ func Build(input io.Reader) (Report, error) {
 				op.Failed++
 			}
 		case "remediation.detected":
-			report.RemediationsDetected++
+			if countIncident(event) {
+				report.RemediationsDetected++
+			}
 		case "remediation.verified":
-			if event.Outcome == "resolved" {
+			if event.Outcome == "resolved" && countIncident(event) {
 				report.RemediationsResolved++
 			}
 		case "remediation.verification":
-			if event.Outcome == "escalated" {
+			if event.Outcome == "escalated" && countIncident(event) {
 				report.RemediationsEscalated++
 			}
 		}
