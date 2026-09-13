@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -39,9 +40,9 @@ type Telegram struct {
 
 // NewTelegram creates a Telegram adapter and verifies the bot token is valid.
 func NewTelegram(token string, chatID int64, adminChatID int64, allowedUsers []int64, logger *slog.Logger, history *agent.HistoryStore) (*Telegram, error) {
-	bot, err := tgbotapi.NewBotAPI(token)
+	bot, err := newTelegramBot(token, &http.Client{})
 	if err != nil {
-		return nil, fmt.Errorf("invalid telegram bot token: %w", err)
+		return nil, fmt.Errorf("initialize telegram client: %w", err)
 	}
 	logger.Info("telegram bot authorized", "username", bot.Self.UserName)
 	return &Telegram{
