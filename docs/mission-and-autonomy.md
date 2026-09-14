@@ -75,6 +75,26 @@ multiple processes or hosts, or deduplication of separate chat-issued actions.
 Interrupted incidents require operator investigation; automatic reconciliation
 and notification redelivery are not implemented yet.
 
+### Complete queue reads
+
+Sonarr queue reads collect every page before returning data to monitoring,
+chat tools, or remediation. Requests use pages of up to 100 entries, with a
+limit of 100 pages per scan and a 30-second deadline for the entire read.
+Missing metadata or entry IDs, short pages, duplicate IDs, changing totals or
+page sizes, failed requests, and exceeded limits return an error without a
+partial queue. Incomplete detection cannot authorize an action; incomplete
+post-action verification escalates rather than reporting resolution.
+
+For a queue spanning multiple pages, two complete scans must agree on queue
+membership. The second scan's records are returned so detection uses the newer
+statuses. A single-page queue needs one request. Requests sort by title to
+reduce movement caused by changing download times. Sonarr's
+[queue controller](https://github.com/Sonarr/Sonarr/blob/develop/src/Sonarr.Api.V3/Queue/QueueController.cs)
+does not provide a snapshot token: these consistency checks do not make the
+reads transactional or prevent changes after the last response. Existing
+Sonarr queue filters remain unchanged; this covers the queue visible to that
+query. Radarr pagination is outside this increment.
+
 Automatic policies must not delete media, remove a series or movie, approve or
 decline a request, delete an indexer, weaken authentication, change credentials,
 or expand their own permissions. Those actions require an explicit user action.
@@ -127,9 +147,10 @@ scenario uses an in-process simulated Sonarr API and the real
 HTTP client, remediation runner, and evidence report. No credentials, external
 services, or model calls are needed.
 
-The twelve-scenario baseline covers healthy and ambiguous queue entries, verified recovery,
+The eighteen-scenario baseline covers healthy and ambiguous queue entries, verified recovery,
 dependency outages, ineffective deletes, verification outages, attempt limits,
-cooldowns, and restart recovery. Expected mutations, remaining queue IDs, notification fragments,
+cooldowns, restart recovery, later-page incidents, and inconsistent pagination.
+Expected mutations, remaining queue IDs, notification fragments,
 event transitions, and incident totals are explicit in each fixture. New
 regressions should become new scenarios. Changes to existing expectations need
 a documented behavior change and review; do not regenerate expectations from
@@ -145,8 +166,8 @@ distinguished by the runtime's incident identity.
 
 This is a deterministic baseline, not evidence that production targets have been
 met. Additional recovery tests cover interrupted ledger transitions, overlapping
-polls, damaged history, and failed pre-action evidence writes. Paginated queue
-verification, interrupted-incident reconciliation, and notification delivery
+polls, damaged history, failed pre-action evidence writes, pagination bounds,
+malformed pages, and canceled reads. Interrupted-incident reconciliation and notification delivery
 failures still need dedicated gates.
 
 ## Production testing

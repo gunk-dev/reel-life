@@ -22,10 +22,12 @@ type Sonarr struct {
 	lastBlocklist bool
 	queueStatuses []int
 	retainDeleted bool
+	pageSize      int
+	queuePages    []sonarr.QueuePage
 }
 
 func NewSonarr(queue []sonarr.QueueItem) *Sonarr {
-	s := &Sonarr{queue: append([]sonarr.QueueItem(nil), queue...)}
+	s := &Sonarr{queue: append([]sonarr.QueueItem{}, queue...)}
 	s.server = httptest.NewServer(http.HandlerFunc(s.serveHTTP))
 	return s
 }
@@ -46,6 +48,21 @@ func (s *Sonarr) QueueStatuses(statuses ...int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.queueStatuses = append([]int(nil), statuses...)
+}
+
+// PageSize caps the number of entries returned per queue page.
+func (s *Sonarr) PageSize(size int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pageSize = size
+}
+
+// QueuePages scripts individual page responses without changing stored queue
+// state. Normal pagination resumes after the script is exhausted.
+func (s *Sonarr) QueuePages(pages ...sonarr.QueuePage) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.queuePages = append([]sonarr.QueuePage(nil), pages...)
 }
 
 // RetainDeleted simulates a successful delete response with no state change.
@@ -76,7 +93,26 @@ func (s *Sonarr) serveHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		_ = json.NewEncoder(w).Encode(sonarr.QueuePage{Page: 1, PageSize: len(s.queue), TotalRecords: len(s.queue), Records: s.queue})
+		if len(s.queuePages) > 0 {
+			page := s.queuePages[0]
+			s.queuePages = s.queuePages[1:]
+			_ = json.NewEncoder(w).Encode(page)
+			return
+		}
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		pageSize, _ := strconv.Atoi(r.URL.Query().Get("pageSize"))
+		if page < 1 {
+			page = 1
+		}
+		if pageSize < 1 {
+			pageSize = 10
+		}
+		if s.pageSize > 0 && s.pageSize < pageSize {
+			pageSize = s.pageSize
+		}
+		start := min((page-1)*pageSize, len(s.queue))
+		end := min(start+pageSize, len(s.queue))
+		_ = json.NewEncoder(w).Encode(sonarr.QueuePage{Page: page, PageSize: pageSize, TotalRecords: len(s.queue), Records: s.queue[start:end]})
 	case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/v3/queue/"):
 		s.deleteCount++
 		s.lastBlocklist = r.URL.Query().Get("blocklist") == "true"

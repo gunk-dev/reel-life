@@ -77,6 +77,7 @@ func TestQueue(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		json.NewEncoder(w).Encode(QueuePage{
+			Page: 1, PageSize: 100,
 			TotalRecords: 1,
 			Records: []QueueItem{
 				{ID: 1, Title: "S01E01", Status: "downloading"},
