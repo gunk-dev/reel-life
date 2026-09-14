@@ -286,7 +286,7 @@ in
       commands = [{
         # The empty argument string means no arguments are permitted.
         command = ''/run/current-system/sw/bin/reel-life-outcomes ""'';
-        options = [ "NOPASSWD" ];
+        options = [ "NOPASSWD" "NOSETENV" ];
       }];
     };
 

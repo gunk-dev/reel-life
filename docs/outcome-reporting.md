@@ -23,6 +23,8 @@ sudo -n /run/current-system/sw/bin/reel-life-outcomes
 The sudo rule allows only the system-profile wrapper with no arguments. The wrapper
 also rejects arguments and fixes the executable, ledger path, summary mode,
 64 MiB input limit, and 30-second timeout (plus five seconds before forced kill).
+The rule explicitly forbids environment overrides (`NOSETENV`), including for
+wheel members who have broader sudo rights after password authentication.
 Enabling the option does not change raw-ledger permissions or permit arbitrary
 file reads. No HTTP endpoint or network listener is added.
 

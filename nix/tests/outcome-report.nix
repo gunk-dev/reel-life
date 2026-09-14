@@ -4,6 +4,7 @@ pkgs.testers.runNixOSTest {
   nodes.machine = { lib, ... }: {
     imports = [ ../module.nix ];
     users.users.operator.isNormalUser = true;
+    users.users.operator.extraGroups = [ "wheel" ];
     users.users.outsider.isNormalUser = true;
     services.reel-life = {
       enable = true;
@@ -33,6 +34,8 @@ pkgs.testers.runNixOSTest {
     assert report["tool_failed"] == 1 and report["events"] == 1, report
     machine.fail("su - operator -c 'sudo -n /run/current-system/sw/bin/reel-life-outcomes -events /etc/shadow'")
     machine.fail("su - operator -c 'sudo -n /run/current-system/sw/bin/reel-life-outcomes --help'")
+    machine.fail("su - operator -c 'sudo -n -E /run/current-system/sw/bin/reel-life-outcomes'")
+    machine.fail("su - operator -c 'sudo -n BASH_ENV=/tmp/untrusted-shell-env /run/current-system/sw/bin/reel-life-outcomes'")
     machine.fail("su - operator -c 'sudo -n cat /var/lib/reel-life/events.jsonl'")
     machine.fail("su - outsider -c 'sudo -n /run/current-system/sw/bin/reel-life-outcomes'")
     assert before == machine.succeed("sha256sum /var/lib/reel-life/events.jsonl")
