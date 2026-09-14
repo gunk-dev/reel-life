@@ -156,6 +156,11 @@ URL overrides: `SONARR_URL`, `RADARR_URL`, `PROWLARR_URL`, `OVERSEERR_URL`.
 
 ## Development
 
+On NixOS, set `services.reel-life.outcomeReportUsers = [ "patrick" ];` to
+allow named users to run `sudo -n reel-life-outcomes`. This fixed command emits
+only aggregate counters and timestamps from the configured evidence ledger;
+it does not grant raw-ledger access. See [outcome reporting](docs/outcome-reporting.md).
+
 ```bash
 nix develop       # enter dev shell
 go test ./...     # run tests
