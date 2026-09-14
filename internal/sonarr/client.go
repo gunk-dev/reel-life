@@ -16,6 +16,7 @@ import (
 type Client interface {
 	Search(ctx context.Context, term string) ([]Series, error)
 	Add(ctx context.Context, req AddSeriesRequest) (*Series, error)
+	// Queue returns all validated queue pages, never a partial result.
 	Queue(ctx context.Context) (*QueuePage, error)
 	History(ctx context.Context, pageSize int) (*HistoryPage, error)
 	Health(ctx context.Context) ([]HealthCheck, error)
@@ -76,16 +77,6 @@ func (c *HTTPClient) Add(ctx context.Context, req AddSeriesRequest) (*Series, er
 	var result Series
 	if err := c.post(ctx, u.String(), body, &result); err != nil {
 		return nil, fmt.Errorf("add series: %w", err)
-	}
-	return &result, nil
-}
-
-func (c *HTTPClient) Queue(ctx context.Context) (*QueuePage, error) {
-	u := c.url("/api/v3/queue")
-
-	var result QueuePage
-	if err := c.get(ctx, u.String(), &result); err != nil {
-		return nil, fmt.Errorf("get queue: %w", err)
 	}
 	return &result, nil
 }

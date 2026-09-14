@@ -22,6 +22,8 @@ import (
 )
 
 type scenario struct {
+	PageSize      int                `json:"page_size,omitempty"`
+	QueuePages    []sonarr.QueuePage `json:"queue_pages,omitempty"`
 	RestartAfter  int                `json:"restart_after,omitempty"`
 	Name          string             `json:"name"`
 	Queue         []sonarr.QueueItem `json:"queue"`
@@ -93,6 +95,8 @@ func TestFrozenRemediation(t *testing.T) {
 			}
 			stack := simarr.NewSonarr(tc.Queue)
 			defer stack.Close()
+			stack.PageSize(tc.PageSize)
+			stack.QueuePages(tc.QueuePages...)
 			stack.FailDeletes(tc.DeleteStatus)
 			stack.QueueStatuses(tc.QueueStatuses...)
 			if tc.RetainDeleted {

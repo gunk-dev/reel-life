@@ -375,5 +375,439 @@
       ]
     },
     "restart_after": 1
+  },
+  {
+    "name": "later_page_failure_is_detected_and_resolved",
+    "queue": [
+      {
+        "id": 92,
+        "title": "a.healthy",
+        "status": "downloading",
+        "trackedDownloadStatus": "ok"
+      },
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "z.broken",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "page_size": 1,
+    "polls": 1,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "want": {
+      "deletes": 1,
+      "remaining_ids": [
+        92
+      ],
+      "detected": 1,
+      "resolved": 1,
+      "escalated": 0,
+      "messages": [
+        "verified the queue entry is gone"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:executed",
+        "remediation.verified:resolved"
+      ]
+    }
+  },
+  {
+    "name": "later_page_item_is_not_falsely_resolved",
+    "queue": [
+      {
+        "id": 92,
+        "title": "a.healthy",
+        "status": "downloading",
+        "trackedDownloadStatus": "ok"
+      },
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "z.broken",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "page_size": 1,
+    "polls": 1,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "retain_deleted": true,
+    "want": {
+      "deletes": 1,
+      "remaining_ids": [
+        91,
+        92
+      ],
+      "detected": 1,
+      "resolved": 0,
+      "escalated": 1,
+      "messages": [
+        "it is still present"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:executed",
+        "remediation.verification:escalated"
+      ]
+    }
+  },
+  {
+    "name": "detection_page_outage_cannot_mutate",
+    "queue": [
+      {
+        "id": 92,
+        "title": "a.healthy",
+        "status": "downloading",
+        "trackedDownloadStatus": "ok"
+      },
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "z.broken",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "page_size": 1,
+    "polls": 1,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "queue_statuses": [
+      0,
+      503
+    ],
+    "want": {
+      "deletes": 0,
+      "remaining_ids": [
+        91,
+        92
+      ],
+      "detected": 0,
+      "resolved": 0,
+      "escalated": 0,
+      "messages": null,
+      "events": [
+        "remediation.detection:failed"
+      ]
+    }
+  },
+  {
+    "name": "verification_page_outage_is_not_resolution",
+    "queue": [
+      {
+        "id": 92,
+        "title": "a.healthy",
+        "status": "downloading",
+        "trackedDownloadStatus": "ok"
+      },
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "z.broken",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "page_size": 1,
+    "polls": 1,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "retain_deleted": true,
+    "queue_statuses": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      503
+    ],
+    "want": {
+      "deletes": 1,
+      "remaining_ids": [
+        91,
+        92
+      ],
+      "detected": 1,
+      "resolved": 0,
+      "escalated": 1,
+      "messages": [
+        "could not verify"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:executed",
+        "remediation.verification:escalated"
+      ]
+    }
+  },
+  {
+    "name": "changing_verification_total_is_not_resolution",
+    "queue": [
+      {
+        "id": 92,
+        "title": "a.healthy",
+        "status": "downloading",
+        "trackedDownloadStatus": "ok"
+      },
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "z.broken",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "page_size": 1,
+    "polls": 1,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "retain_deleted": true,
+    "queue_pages": [
+      {
+        "page": 1,
+        "pageSize": 1,
+        "totalRecords": 2,
+        "records": [
+          {
+            "id": 92,
+            "title": "a.healthy",
+            "status": "downloading",
+            "trackedDownloadStatus": "ok"
+          }
+        ]
+      },
+      {
+        "page": 2,
+        "pageSize": 1,
+        "totalRecords": 2,
+        "records": [
+          {
+            "id": 91,
+            "seriesId": 4,
+            "title": "z.broken",
+            "trackedDownloadState": "downloadFailed"
+          }
+        ]
+      },
+      {
+        "page": 1,
+        "pageSize": 1,
+        "totalRecords": 2,
+        "records": [
+          {
+            "id": 92,
+            "title": "a.healthy",
+            "status": "downloading",
+            "trackedDownloadStatus": "ok"
+          }
+        ]
+      },
+      {
+        "page": 2,
+        "pageSize": 1,
+        "totalRecords": 2,
+        "records": [
+          {
+            "id": 91,
+            "seriesId": 4,
+            "title": "z.broken",
+            "trackedDownloadState": "downloadFailed"
+          }
+        ]
+      },
+      {
+        "page": 1,
+        "pageSize": 1,
+        "totalRecords": 2,
+        "records": [
+          {
+            "id": 92,
+            "title": "a.healthy",
+            "status": "downloading",
+            "trackedDownloadStatus": "ok"
+          }
+        ]
+      },
+      {
+        "page": 2,
+        "pageSize": 1,
+        "totalRecords": 3,
+        "records": [
+          {
+            "id": 91,
+            "seriesId": 4,
+            "title": "z.broken",
+            "trackedDownloadState": "downloadFailed"
+          }
+        ]
+      }
+    ],
+    "want": {
+      "deletes": 1,
+      "remaining_ids": [
+        91,
+        92
+      ],
+      "detected": 1,
+      "resolved": 0,
+      "escalated": 1,
+      "messages": [
+        "could not verify"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:executed",
+        "remediation.verification:escalated"
+      ]
+    }
+  },
+  {
+    "name": "same_count_verification_churn_is_not_resolution",
+    "queue": [
+      {
+        "id": 92,
+        "title": "a.healthy",
+        "status": "downloading",
+        "trackedDownloadStatus": "ok"
+      },
+      {
+        "id": 91,
+        "seriesId": 4,
+        "title": "z.broken",
+        "trackedDownloadState": "downloadFailed"
+      }
+    ],
+    "page_size": 1,
+    "polls": 1,
+    "max_attempts": 1,
+    "cooldown": "0s",
+    "retain_deleted": true,
+    "queue_pages": [
+      {
+        "page": 1,
+        "pageSize": 1,
+        "totalRecords": 2,
+        "records": [
+          {
+            "id": 92,
+            "title": "a.healthy",
+            "status": "downloading",
+            "trackedDownloadStatus": "ok"
+          }
+        ]
+      },
+      {
+        "page": 2,
+        "pageSize": 1,
+        "totalRecords": 2,
+        "records": [
+          {
+            "id": 91,
+            "seriesId": 4,
+            "title": "z.broken",
+            "trackedDownloadState": "downloadFailed"
+          }
+        ]
+      },
+      {
+        "page": 1,
+        "pageSize": 1,
+        "totalRecords": 2,
+        "records": [
+          {
+            "id": 92,
+            "title": "a.healthy",
+            "status": "downloading",
+            "trackedDownloadStatus": "ok"
+          }
+        ]
+      },
+      {
+        "page": 2,
+        "pageSize": 1,
+        "totalRecords": 2,
+        "records": [
+          {
+            "id": 91,
+            "seriesId": 4,
+            "title": "z.broken",
+            "trackedDownloadState": "downloadFailed"
+          }
+        ]
+      },
+      {
+        "page": 1,
+        "pageSize": 1,
+        "totalRecords": 2,
+        "records": [
+          {
+            "id": 92,
+            "title": "a.healthy",
+            "status": "downloading",
+            "trackedDownloadStatus": "ok"
+          }
+        ]
+      },
+      {
+        "page": 2,
+        "pageSize": 1,
+        "totalRecords": 2,
+        "records": [
+          {
+            "id": 93,
+            "status": "downloading"
+          }
+        ]
+      },
+      {
+        "page": 1,
+        "pageSize": 1,
+        "totalRecords": 2,
+        "records": [
+          {
+            "id": 92,
+            "title": "a.healthy",
+            "status": "downloading",
+            "trackedDownloadStatus": "ok"
+          }
+        ]
+      },
+      {
+        "page": 2,
+        "pageSize": 1,
+        "totalRecords": 2,
+        "records": [
+          {
+            "id": 91,
+            "seriesId": 4,
+            "title": "z.broken",
+            "trackedDownloadState": "downloadFailed"
+          }
+        ]
+      }
+    ],
+    "want": {
+      "deletes": 1,
+      "remaining_ids": [
+        91,
+        92
+      ],
+      "detected": 1,
+      "resolved": 0,
+      "escalated": 1,
+      "messages": [
+        "could not verify"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:executed",
+        "remediation.verification:escalated"
+      ]
+    }
   }
 ]
