@@ -26,6 +26,12 @@
         reel-life = pkgs.reel-life;
       });
 
+      checks = forAllSystems (system:
+        let pkgs = pkgsFor system;
+        in pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
+          outcome-report = import ./nix/tests/outcome-report.nix { inherit pkgs; };
+        });
+
       devShells = forAllSystems (system: let
         pkgs = pkgsFor system;
       in {

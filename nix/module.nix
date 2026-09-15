@@ -52,6 +52,15 @@
 { config, lib, pkgs, ... }:
 let
   cfg = config.services.reel-life;
+  outcomes = pkgs.writeShellScriptBin "reel-life-outcomes" ''
+    if [ "$#" -ne 0 ]; then
+      echo "reel-life-outcomes accepts no arguments" >&2
+      exit 64
+    fi
+    exec ${pkgs.coreutils}/bin/timeout --signal=TERM --kill-after=5s 30s \
+      ${cfg.package}/bin/reel-life-report -summary -max-bytes 67108864 \
+      -events ${lib.escapeShellArg cfg.evidencePath}
+  '';
 in
 {
   options.services.reel-life = {
@@ -189,6 +198,12 @@ in
       description = "Path for the append-only, redacted product evidence ledger";
     };
 
+    outcomeReportUsers = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      description = "Users allowed to run the fixed, counters-only outcome report via passwordless sudo";
+    };
+
     remediationEnabled = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -251,6 +266,10 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
+        assertion = cfg.outcomeReportUsers == [] || lib.hasPrefix "/" cfg.evidencePath;
+        message = "services.reel-life.evidencePath must be absolute when outcomeReportUsers is set";
+      }
+      {
         assertion = !cfg.remediationEnabled || cfg.monitorEnabled;
         message = "services.reel-life.monitorEnabled must be true when remediationEnabled is true";
       }
@@ -259,6 +278,17 @@ in
         message = "services.reel-life.evidencePath is required when remediationEnabled is true";
       }
     ];
+
+    environment.systemPackages = lib.optional (cfg.outcomeReportUsers != []) outcomes;
+    security.sudo.extraRules = lib.optional (cfg.outcomeReportUsers != []) {
+      users = cfg.outcomeReportUsers;
+      runAs = "root";
+      commands = [{
+        # The empty argument string means no arguments are permitted.
+        command = ''/run/current-system/sw/bin/reel-life-outcomes ""'';
+        options = [ "NOPASSWD" "NOSETENV" ];
+      }];
+    };
 
     environment.etc."reel-life/config.yaml".text = builtins.toJSON ({
       sonarr = { base_url = cfg.sonarrUrl; };

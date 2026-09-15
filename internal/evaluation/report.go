@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"time"
 
 	"github.com/patflynn/reel-life/internal/events"
 )
@@ -18,6 +19,10 @@ type Operation struct {
 }
 
 type Report struct {
+	FirstEventAt          *time.Time  `json:"first_event_at,omitempty"`
+	LastEventAt           *time.Time  `json:"last_event_at,omitempty"`
+	DetectionFailures     int         `json:"detection_failures"`
+	ActionFailures        int         `json:"action_failures"`
 	Events                int         `json:"events"`
 	MalformedLines        int         `json:"malformed_lines"`
 	ToolOperations        []Operation `json:"tool_operations"`
@@ -56,12 +61,29 @@ func Build(input io.Reader) (Report, error) {
 	scanner.Buffer(buffer, 1024*1024)
 	for scanner.Scan() {
 		var event events.Event
-		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
+		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil || event.Type == "" {
 			report.MalformedLines++
 			continue
 		}
 		report.Events++
+		if !event.Timestamp.IsZero() {
+			ts := event.Timestamp.UTC()
+			if report.FirstEventAt == nil || ts.Before(*report.FirstEventAt) {
+				report.FirstEventAt = &ts
+			}
+			if report.LastEventAt == nil || ts.After(*report.LastEventAt) {
+				report.LastEventAt = &ts
+			}
+		}
 		switch event.Type {
+		case "remediation.detection":
+			if event.Outcome == "failed" {
+				report.DetectionFailures++
+			}
+		case "remediation.action":
+			if event.Outcome == "failed" {
+				report.ActionFailures++
+			}
 		case "tool.result":
 			op := operations[event.Operation]
 			if op == nil {

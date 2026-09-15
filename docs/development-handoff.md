@@ -19,6 +19,7 @@ Verified against GitHub on 2026-09-13:
 - PR #53: redact Telegram tokens from HTTP errors.
 - PR #54: frozen remediation evaluations, CI gate, and unique incident counts.
 - PR #55: durable attempt reservations, restart recovery, and pre-action evidence gates.
+- PR #56: complete, bounded Sonarr queue verification (18 evaluation scenarios).
 
 Reel-life was active on laddie during a read-only check on 2026-09-13. A production
 evidence snapshot was not obtained because sudo required authentication. The
@@ -27,20 +28,20 @@ does not by itself verify which binary laddie is running.
 
 ## Current increment
 
-Branch: `fix/complete-queue-verification`.
+Branch: `feat/restricted-outcome-report`.
 
-Reads the complete Sonarr queue with bounded pagination. Multi-page queues need
-two scans with matching membership; missing fields, inconsistent pages, page
-errors, and read limits return errors instead of partial data. This protects
-both detection and post-action verification. Adds six frozen scenarios (18
-total) plus client tests for malformed data, bounds, churn, and cancellation.
-No new deployment setting is required. These reads are not atomic snapshots;
-the existing queue filters remain in place, and Radarr is unchanged.
+Packages the report command, adds a fixed counters/timestamps summary, and
+provides opt-in `outcomeReportUsers` access through a no-argument sudo wrapper.
+The wrapper fixes the ledger path and bounds input size and execution time.
+A companion cosmo change grants access to `patrick` on classic-laddie. Both
+application and host changes require review before deployment; raw-ledger
+permissions stay unchanged. See [outcome reporting](outcome-reporting.md).
 
 ## Next increments
 
-1. Take a read-only production evidence snapshot and use the report to choose
-   the next failure to address. Keep credentials and raw user text out of fixtures.
+1. After the reporting changes deploy, collect the restricted production report
+   and choose the next failure to address. Keep credentials and raw user text
+   out of fixtures. The report is lifetime evidence, not a monitor heartbeat.
 2. Reconcile interrupted incidents through read-only checks, and track
    notification delivery separately from the media action's outcome.
 3. Design bounded ledger retention/compaction that preserves attempt state and
