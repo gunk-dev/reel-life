@@ -75,3 +75,12 @@ nix build .#checks.x86_64-linux.outcome-report
 It verifies successful reporting by the named user, rejection of extra arguments
 and other users, unchanged raw-ledger permissions, unchanged ledger contents,
 and exclusion of a seeded private-text canary.
+
+Reconciliation adds `reconciliation_present` and `reconciliation_absent` counters
+for recorded observation changes. Repeated unchanged observations are suppressed,
+including across restarts. These counts are not recovery counts: a plan-only
+attempt can be observed absent without proof that the action ran. Only recorded
+executions whose queue entries are subsequently absent add a verified resolution.
+Absence proves neither who removed the entry nor replacement download/playback.
+Notification delivery remains best effort and can be lost across a crash after
+recording an outcome. Queue-ID reuse remains blocked, requiring operator review.

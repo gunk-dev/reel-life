@@ -33,19 +33,21 @@ reel-life and the restricted report worked: 25 events, 22 successful tool calls,
 3 failed calls, no malformed records, and no remediation incidents. The latest
 event was September 17; the old report cannot establish monitor activity.
 
-Branch: `feat/monitor-outcome-evidence` adds poll start/completion evidence,
-health-request and health-alert outcomes, and allowlisted tool failure categories.
-It is awaiting review and deployment. After deployment, check fresh monitor
-completion timestamps and use failure categories to choose the next evaluation.
-No production recovery rate is established yet.
+PR #58 is merged. Its cosmo update is #880; all host checks passed, but the
+September 19 initial deployment probe still returned the old report.
+
+Branch: `feat/reconcile-interrupted-remediation` adds read-only reconciliation of
+pending attempts after restarts and failed verification. Recorded executions can
+be verified from a complete queue read; ambiguous plans only gain an observation.
+Repeat mutation remains blocked. Awaiting review and deployment.
 
 ## Next increments
 
 1. After the reporting changes deploy, collect the restricted production report
    and choose the next failure to address. Keep credentials and raw user text
    out of fixtures. The report is lifetime evidence, not a monitor heartbeat.
-2. Reconcile interrupted incidents through read-only checks, and track
-   notification delivery separately from the media action's outcome.
+2. Track remediation notification delivery separately from the media action's
+   outcome; reconciliation notifications currently remain best effort.
 3. Design bounded ledger retention/compaction that preserves attempt state and
    incident identity across queue-ID reuse. Multi-process coordination remains
    outside the current single-owner deployment model.

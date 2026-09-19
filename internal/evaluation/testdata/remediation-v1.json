@@ -198,6 +198,7 @@
         "remediation.planned:approved_by_policy",
         "remediation.action:executed",
         "remediation.verification:escalated",
+        "remediation.reconciled:queue_present",
         "remediation.detected:eligible"
       ],
       "remaining_ids": [
@@ -368,6 +369,7 @@
         "remediation.planned:approved_by_policy",
         "remediation.action:executed",
         "remediation.verification:escalated",
+        "remediation.reconciled:queue_present",
         "remediation.detected:eligible"
       ],
       "remaining_ids": [
@@ -807,6 +809,44 @@
         "remediation.planned:approved_by_policy",
         "remediation.action:executed",
         "remediation.verification:escalated"
+      ]
+    }
+  },
+  {
+    "name": "restart_reconciles_executed_action_after_verification_outage",
+    "queue": [
+      {
+        "id": 91,
+        "status": "failed"
+      }
+    ],
+    "polls": 3,
+    "restart_after": 1,
+    "max_attempts": 3,
+    "cooldown": "0s",
+    "queue_statuses": [
+      0,
+      503,
+      0,
+      0
+    ],
+    "want": {
+      "deletes": 1,
+      "remaining_ids": [],
+      "detected": 1,
+      "resolved": 1,
+      "escalated": 1,
+      "messages": [
+        "could not verify",
+        "previously executed"
+      ],
+      "events": [
+        "remediation.detected:eligible",
+        "remediation.planned:approved_by_policy",
+        "remediation.action:executed",
+        "remediation.verification:escalated",
+        "remediation.reconciled:queue_absent",
+        "remediation.verified:resolved"
       ]
     }
   }

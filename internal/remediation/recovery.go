@@ -25,7 +25,7 @@ func NewPersistent(client sonarrQueueClient, notifier chat.Notifier, recorder *e
 
 func (r *Runner) restore(event events.Event) error {
 	switch event.Type {
-	case "remediation.planned", "remediation.action", "remediation.verified", "remediation.verification":
+	case "remediation.planned", "remediation.action", "remediation.verified", "remediation.verification", "remediation.reconciled":
 	default:
 		return nil
 	}
@@ -48,6 +48,7 @@ func (r *Runner) restore(event events.Event) error {
 			r.lastTry[key] = event.Timestamp
 		}
 		r.blocked[key] = true
+		r.pending[key] = reconciliation{}
 		return nil
 	}
 	if r.attempts[key] == 0 {
@@ -58,15 +59,33 @@ func (r *Runner) restore(event events.Event) error {
 		switch event.Outcome {
 		case "failed":
 			r.blocked[key] = false
+			delete(r.pending, key)
 		case "executed":
 			r.blocked[key] = true
+			r.pending[key] = reconciliation{executed: true}
 		default:
 			return fmt.Errorf("unsupported remediation action outcome")
+		}
+	case "remediation.reconciled":
+		state, ok := r.pending[key]
+		// A recorder error can follow a durable append. A duplicate terminal
+		// observation must not make the next startup fail or unblock actions.
+		if !ok && r.blocked[key] && event.Outcome == "queue_absent" {
+			return nil
+		}
+		if !ok || (event.Outcome != "queue_absent" && event.Outcome != "queue_present") {
+			return fmt.Errorf("invalid reconciliation outcome or missing pending attempt")
+		}
+		state.observation = event.Outcome
+		r.pending[key] = state
+		if event.Outcome == "queue_absent" && !state.executed {
+			delete(r.pending, key)
 		}
 	case "remediation.verified":
 		if event.Outcome != "resolved" {
 			return fmt.Errorf("unsupported remediation verification outcome")
 		}
+		delete(r.pending, key)
 		// Retain completed incident reservations too: stale observations must
 		// never cause a previously verified mutation to run again.
 		r.blocked[key] = true

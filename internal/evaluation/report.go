@@ -19,6 +19,8 @@ type Operation struct {
 }
 
 type Report struct {
+	ReconciliationAbsent  int            `json:"reconciliation_absent"`
+	ReconciliationPresent int            `json:"reconciliation_present"`
 	Monitor               MonitorHealth  `json:"monitor"`
 	ToolFailureKinds      map[string]int `json:"tool_failure_kinds"`
 	FirstEventAt          *time.Time     `json:"first_event_at,omitempty"`
@@ -78,6 +80,13 @@ func Build(input io.Reader) (Report, error) {
 			}
 		}
 		switch event.Type {
+		case "remediation.reconciled":
+			if event.Outcome == "queue_absent" {
+				report.ReconciliationAbsent++
+			}
+			if event.Outcome == "queue_present" {
+				report.ReconciliationPresent++
+			}
 		case "monitor.poll.started":
 			report.Monitor.PollsStarted++
 			latest(&report.Monitor.LastPollStartedAt, event.Timestamp)
