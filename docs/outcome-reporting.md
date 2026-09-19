@@ -39,8 +39,29 @@ Counts cover the retained ledger, not a rolling interval. Unique incident counts
 retain the report's existing deduplication rules. Resolved and escalated categories
 are independent and may overlap. Tool and detection/action failure counts are
 per-event. Queue removal does not prove replacement download or playback success.
-An old last-event timestamp can mean a quiet queue, not necessarily a stopped
-monitor; the report is not a heartbeat.
+The `monitor` object counts poll starts/completions, Sonarr health request
+successes/failures, and health-alert delivery successes/failures. It includes the
+latest poll start/completion and health success/failure timestamps. A completion
+is recorded after the remediation runner returns, including when a health request
+fails; it does not mean Sonarr is healthy or that remediation succeeded. A health
+success means the request succeeded, even if Sonarr reported issues. These alert
+counters cover monitor health alerts only, not remediation notifications.
+
+Compare poll timestamps with the configured monitor interval and report generation
+time. A stale completion is a reason to investigate, not proof of an outage:
+monitoring may be disabled, a poll may be blocked, or evidence writes may fail.
+Old ledgers have zero monitor counters and absent monitor timestamps; they cannot
+establish that monitoring ran. Evidence-disabled installations have no heartbeat.
+The monitor records three events per ordinary poll (start, health, completion),
+plus notification results when alerts are sent. Evidence errors are logged and do
+not stop health monitoring; remediation retains its own mandatory evidence gates.
+
+`tool_failure_kinds` contains only the allowlisted categories `decode`, `network`,
+`auth`, `not_found`, `invalid_input`, `rate_limited`, and `unknown`. Missing or
+unrecognized categories become `unknown`; no raw error strings are emitted.
+Only recorded failed tool results are counted (local rate-limit rejections before
+dispatch are currently not recorded). Historical missing categories cannot be
+reconstructed. Detection/action failures retain their separate counters.
 
 Do not truncate the ledger to satisfy the size limit: it also holds remediation
 recovery state. Bounded compaction that preserves that state is follow-up work.

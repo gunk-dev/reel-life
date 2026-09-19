@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/patflynn/reel-life/internal/chat"
+	"github.com/patflynn/reel-life/internal/events"
 	"github.com/patflynn/reel-life/internal/sonarr"
 )
 
@@ -17,6 +18,8 @@ type Monitor struct {
 	notifier chat.Notifier
 	interval time.Duration
 	logger   *slog.Logger
+
+	recorder events.Recorder
 
 	// Track previously seen issues to avoid duplicate alerts.
 	lastIssues map[string]bool
@@ -36,6 +39,18 @@ func New(sonarrClient sonarr.Client, notifier chat.Notifier, interval time.Durat
 // SetRemediator runs deterministic recovery policies after each health check.
 func (m *Monitor) SetRemediator(remediator interface{ RunOnce(context.Context) }) {
 	m.remediator = remediator
+}
+
+// SetEventRecorder enables poll evidence; configure before Run.
+func (m *Monitor) SetEventRecorder(recorder events.Recorder) { m.recorder = recorder }
+
+func (m *Monitor) record(ctx context.Context, typ, outcome string) {
+	if m.recorder == nil {
+		return
+	}
+	if err := m.recorder.Record(ctx, events.Event{Type: typ, Component: "monitor", Outcome: outcome}); err != nil {
+		m.logger.Error("failed to record monitor evidence", "error", err)
+	}
 }
 
 // Run starts the polling loop. Blocks until ctx is cancelled.
@@ -60,17 +75,21 @@ func (m *Monitor) Run(ctx context.Context) error {
 }
 
 func (m *Monitor) check(ctx context.Context) {
+	m.record(ctx, "monitor.poll.started", "")
 	defer func() {
 		if m.remediator != nil {
 			m.remediator.RunOnce(ctx)
 		}
+		m.record(ctx, "monitor.poll.completed", "")
 	}()
 	checks, err := m.sonarr.Health(ctx)
 	if err != nil {
+		m.record(ctx, "monitor.health", "failed")
 		m.logger.Error("health check failed", "error", err)
 		return
 	}
 
+	m.record(ctx, "monitor.health", "succeeded")
 	m.logger.Debug("health check complete", "issues", len(checks))
 
 	currentIssues := make(map[string]bool)
@@ -111,8 +130,11 @@ func (m *Monitor) alert(ctx context.Context, issues []sonarr.HealthCheck) {
 	m.logger.Warn("sending health alert", "issues", len(issues))
 
 	if err := m.notifier.SendAdmin(ctx, msg, "sonarr-health"); err != nil {
+		m.record(ctx, "monitor.notification", "failed")
 		m.logger.Error("failed to send alert", "error", err)
+		return
 	}
+	m.record(ctx, "monitor.notification", "succeeded")
 }
 
 func issueKey(check sonarr.HealthCheck) string {
