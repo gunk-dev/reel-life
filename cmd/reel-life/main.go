@@ -186,6 +186,7 @@ func main() {
 	// Start monitor loop
 	if cfg.Monitor.Enabled {
 		mon := monitor.New(sonarrClient, notifier, cfg.Monitor.Interval, logger)
+		mon.SetEventRecorder(eventRecorder)
 		if cfg.Remediation.Enabled {
 			runner, err := remediation.NewPersistent(sonarrClient, notifier, fileRecorder, logger, cfg.Remediation.MaxAttempts, cfg.Remediation.Cooldown)
 			if err != nil {

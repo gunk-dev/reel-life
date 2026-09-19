@@ -2,7 +2,12 @@ package monitor
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/patflynn/reel-life/internal/events"
 	"log/slog"
+	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -170,5 +175,87 @@ func TestMonitorNoAlertWhenHealthy(t *testing.T) {
 
 	if len(notifier.messages) != 0 {
 		t.Errorf("expected no alerts when healthy, got %d", len(notifier.messages))
+	}
+}
+
+type evidenceRecorder struct {
+	entries []events.Event
+	fail    bool
+}
+
+func (r *evidenceRecorder) Record(_ context.Context, e events.Event) error {
+	if r.fail {
+		return fmt.Errorf("disk unavailable")
+	}
+	r.entries = append(r.entries, e)
+	return nil
+}
+
+type remediatorFunc func(context.Context)
+
+func (f remediatorFunc) RunOnce(ctx context.Context) { f(ctx) }
+
+type failingNotifier struct{ mockNotifier }
+
+func (*failingNotifier) SendAdmin(context.Context, string, string) error {
+	return fmt.Errorf("PRIVATE_CANARY")
+}
+
+func TestPollEvidence(t *testing.T) {
+	for _, mode := range []string{"healthy", "health-failed", "notification-failed", "notification-succeeded", "recorder-failed"} {
+		t.Run(mode, func(t *testing.T) {
+			recorder := &evidenceRecorder{fail: mode == "recorder-failed"}
+			client := &mockSonarr{healthFn: func() ([]sonarr.HealthCheck, error) {
+				if mode == "health-failed" {
+					return nil, fmt.Errorf("PRIVATE_CANARY")
+				}
+				if mode == "notification-failed" || mode == "notification-succeeded" {
+					return []sonarr.HealthCheck{{Type: "warning", Source: "PRIVATE_CANARY", Message: "PRIVATE_CANARY"}}, nil
+				}
+				return nil, nil
+			}}
+			mon := New(client, &failingNotifier{}, time.Minute, slog.Default())
+			if mode == "notification-succeeded" {
+				mon.notifier = &mockNotifier{}
+			}
+			mon.SetEventRecorder(recorder)
+			called := false
+			mon.SetRemediator(remediatorFunc(func(context.Context) {
+				called = true
+				for _, e := range recorder.entries {
+					if e.Type == "monitor.poll.completed" {
+						t.Fatal("poll completed before remediation returned")
+					}
+				}
+			}))
+			mon.check(context.Background())
+			if !called {
+				t.Fatal("remediator skipped")
+			}
+			if mode == "recorder-failed" {
+				return
+			}
+			want := []string{"monitor.poll.started:", "monitor.health:succeeded", "monitor.poll.completed:"}
+			if mode == "health-failed" {
+				want[1] = "monitor.health:failed"
+			}
+			if mode == "notification-failed" {
+				want = []string{want[0], want[1], "monitor.notification:failed", want[2]}
+			}
+			if mode == "notification-succeeded" {
+				want = []string{want[0], want[1], "monitor.notification:succeeded", want[2]}
+			}
+			var got []string
+			for _, e := range recorder.entries {
+				got = append(got, e.Type+":"+e.Outcome)
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("got %v want %v", got, want)
+			}
+			data, _ := json.Marshal(recorder.entries)
+			if strings.Contains(string(data), "PRIVATE_CANARY") {
+				t.Fatal("private data in evidence")
+			}
+		})
 	}
 }

@@ -19,22 +19,24 @@ type Operation struct {
 }
 
 type Report struct {
-	FirstEventAt          *time.Time  `json:"first_event_at,omitempty"`
-	LastEventAt           *time.Time  `json:"last_event_at,omitempty"`
-	DetectionFailures     int         `json:"detection_failures"`
-	ActionFailures        int         `json:"action_failures"`
-	Events                int         `json:"events"`
-	MalformedLines        int         `json:"malformed_lines"`
-	ToolOperations        []Operation `json:"tool_operations"`
-	RemediationsDetected  int         `json:"remediations_detected"`
-	RemediationsResolved  int         `json:"remediations_resolved"`
-	RemediationsEscalated int         `json:"remediations_escalated"`
+	Monitor               MonitorHealth  `json:"monitor"`
+	ToolFailureKinds      map[string]int `json:"tool_failure_kinds"`
+	FirstEventAt          *time.Time     `json:"first_event_at,omitempty"`
+	LastEventAt           *time.Time     `json:"last_event_at,omitempty"`
+	DetectionFailures     int            `json:"detection_failures"`
+	ActionFailures        int            `json:"action_failures"`
+	Events                int            `json:"events"`
+	MalformedLines        int            `json:"malformed_lines"`
+	ToolOperations        []Operation    `json:"tool_operations"`
+	RemediationsDetected  int            `json:"remediations_detected"`
+	RemediationsResolved  int            `json:"remediations_resolved"`
+	RemediationsEscalated int            `json:"remediations_escalated"`
 }
 
 // Build reads a JSONL evidence ledger. Malformed lines are counted instead of
 // aborting the report so one damaged record cannot hide all later evidence.
 func Build(input io.Reader) (Report, error) {
-	var report Report
+	report := Report{ToolFailureKinds: make(map[string]int)}
 	operations := make(map[string]*Operation)
 	// Polls and replayed ledger entries are observations of the same incident.
 	// Keep each outcome category independent: an escalated incident can later
@@ -76,6 +78,28 @@ func Build(input io.Reader) (Report, error) {
 			}
 		}
 		switch event.Type {
+		case "monitor.poll.started":
+			report.Monitor.PollsStarted++
+			latest(&report.Monitor.LastPollStartedAt, event.Timestamp)
+		case "monitor.poll.completed":
+			report.Monitor.PollsCompleted++
+			latest(&report.Monitor.LastPollCompletedAt, event.Timestamp)
+		case "monitor.health":
+			if event.Outcome == "succeeded" {
+				report.Monitor.HealthSucceeded++
+				latest(&report.Monitor.LastHealthSucceededAt, event.Timestamp)
+			}
+			if event.Outcome == "failed" {
+				report.Monitor.HealthFailed++
+				latest(&report.Monitor.LastHealthFailedAt, event.Timestamp)
+			}
+		case "monitor.notification":
+			if event.Outcome == "succeeded" {
+				report.Monitor.NotificationsSucceeded++
+			}
+			if event.Outcome == "failed" {
+				report.Monitor.NotificationsFailed++
+			}
 		case "remediation.detection":
 			if event.Outcome == "failed" {
 				report.DetectionFailures++
@@ -95,6 +119,7 @@ func Build(input io.Reader) (Report, error) {
 				op.Succeeded++
 			case "failed":
 				op.Failed++
+				report.ToolFailureKinds[safeFailureKind(event.ErrorKind)]++
 			}
 		case "remediation.detected":
 			if countIncident(event) {

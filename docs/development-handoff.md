@@ -1,6 +1,6 @@
 # Development handoff
 
-Last updated: 2026-09-13.
+Last updated: 2026-09-19.
 
 ## Direction and approval boundary
 
@@ -28,14 +28,16 @@ does not by itself verify which binary laddie is running.
 
 ## Current increment
 
-Branch: `feat/restricted-outcome-report`.
+PR #57 and cosmo #859/#864 are merged. On September 19, laddie was running
+reel-life and the restricted report worked: 25 events, 22 successful tool calls,
+3 failed calls, no malformed records, and no remediation incidents. The latest
+event was September 17; the old report cannot establish monitor activity.
 
-Packages the report command, adds a fixed counters/timestamps summary, and
-provides opt-in `outcomeReportUsers` access through a no-argument sudo wrapper.
-The wrapper fixes the ledger path and bounds input size and execution time.
-A companion cosmo change grants access to `patrick` on classic-laddie. Both
-application and host changes require review before deployment; raw-ledger
-permissions stay unchanged. See [outcome reporting](outcome-reporting.md).
+Branch: `feat/monitor-outcome-evidence` adds poll start/completion evidence,
+health-request and health-alert outcomes, and allowlisted tool failure categories.
+It is awaiting review and deployment. After deployment, check fresh monitor
+completion timestamps and use failure categories to choose the next evaluation.
+No production recovery rate is established yet.
 
 ## Next increments
 
