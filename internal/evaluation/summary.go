@@ -7,6 +7,8 @@ import "time"
 // titles, attributes, or error messages
 // from the ledger can become output fields or values.
 type Summary struct {
+	ReconciliationAbsent  int            `json:"reconciliation_absent"`
+	ReconciliationPresent int            `json:"reconciliation_present"`
 	Monitor               MonitorHealth  `json:"monitor"`
 	ToolFailureKinds      map[string]int `json:"tool_failure_kinds"`
 	GeneratedAt           time.Time      `json:"generated_at"`
@@ -26,6 +28,7 @@ type Summary struct {
 
 func (r Report) Summary(sourceBytes int64, now time.Time) Summary {
 	s := Summary{
+		ReconciliationAbsent: r.ReconciliationAbsent, ReconciliationPresent: r.ReconciliationPresent,
 		Monitor: r.Monitor, ToolFailureKinds: make(map[string]int),
 		GeneratedAt: now.UTC(), SourceBytes: sourceBytes,
 		FirstEventAt: r.FirstEventAt, LastEventAt: r.LastEventAt,

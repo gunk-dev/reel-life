@@ -72,8 +72,12 @@ The ledger is now recovery state as well as analytics evidence. Keep its complet
 history at the same path across updates, and use one process to own automatic
 remediation for a Sonarr stack. This does not provide coordination between
 multiple processes or hosts, or deduplication of separate chat-issued actions.
-Interrupted incidents require operator investigation; automatic reconciliation
-and notification redelivery are not implemented yet.
+Interrupted attempts are reconciled through later complete queue reads. A recorded
+executed action can gain a missing verification when its queue entry is absent;
+a plan without a recorded execution yields only an observation of absence, not a
+claim of successful action. Present entries stay pending and blocked. No
+reconciliation authorizes a repeated action. Unrecognized legacy incident IDs
+still require operator investigation; notification redelivery is not implemented.
 
 ### Complete queue reads
 

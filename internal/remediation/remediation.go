@@ -36,6 +36,7 @@ type Runner struct {
 	attempts map[string]int
 	lastTry  map[string]time.Time
 	blocked  map[string]bool
+	pending  map[string]reconciliation
 }
 
 // New constructs an in-memory runner for isolated use and tests. Production
@@ -47,7 +48,7 @@ func New(sonarrClient sonarrQueueClient, notifier chat.Notifier, recorder events
 	return &Runner{
 		sonarr: sonarrClient, notifier: notifier, events: recorder, logger: logger,
 		maxAttempts: maxAttempts, cooldown: cooldown,
-		attempts: make(map[string]int), lastTry: make(map[string]time.Time), blocked: make(map[string]bool),
+		attempts: make(map[string]int), lastTry: make(map[string]time.Time), blocked: make(map[string]bool), pending: make(map[string]reconciliation),
 	}
 }
 
@@ -64,6 +65,7 @@ func (r *Runner) RunOnce(ctx context.Context) {
 		r.logger.Error("remediation queue check failed", "error", err)
 		return
 	}
+	r.reconcile(ctx, queue)
 	for _, item := range queue.Records {
 		if isFailed(item) {
 			r.remediateFailedDownload(ctx, item)
@@ -95,16 +97,21 @@ func (r *Runner) remediateFailedDownload(ctx context.Context, item sonarr.QueueI
 		return
 	}
 
+	r.pending[incidentKey] = reconciliation{}
+
 	if err := r.sonarr.RemoveFailed(ctx, item.ID, true); err != nil {
 		if r.record(ctx, events.Event{Type: "remediation.action", CorrelationID: incidentKey, Component: "remediation", Operation: failedDownloadPolicy, Outcome: "failed", ErrorKind: "dependency", Attributes: attrs}) {
 			// Recorded action failures retain the configured retry budget and
 			// cooldown. Missing outcomes and failed verification stay blocked.
 			r.blocked[incidentKey] = false
+			delete(r.pending, incidentKey)
 		}
 		r.escalate(ctx, incidentKey, fmt.Sprintf("I couldn't remove and blocklist failed Sonarr download %q (queue %d): %v", item.Title, item.ID, err), attrs)
 		return
 	}
-	r.record(ctx, events.Event{Type: "remediation.action", CorrelationID: incidentKey, Component: "remediation", Operation: failedDownloadPolicy, Outcome: "executed", Attributes: attrs})
+	if r.record(ctx, events.Event{Type: "remediation.action", CorrelationID: incidentKey, Component: "remediation", Operation: failedDownloadPolicy, Outcome: "executed", Attributes: attrs}) {
+		r.pending[incidentKey] = reconciliation{executed: true}
+	}
 
 	queue, err := r.sonarr.Queue(ctx)
 	if err != nil {
@@ -118,7 +125,10 @@ func (r *Runner) remediateFailedDownload(ctx context.Context, item sonarr.QueueI
 		}
 	}
 
-	r.record(ctx, events.Event{Type: "remediation.verified", CorrelationID: incidentKey, Component: "remediation", Operation: failedDownloadPolicy, Outcome: "resolved", Attributes: attrs})
+	if !r.record(ctx, events.Event{Type: "remediation.verified", CorrelationID: incidentKey, Component: "remediation", Operation: failedDownloadPolicy, Outcome: "resolved", Attributes: attrs}) {
+		return
+	}
+	delete(r.pending, incidentKey)
 	msg := fmt.Sprintf("✅ Automatically resolved failed Sonarr download %q (queue %d): removed it, added the release to the blocklist, and verified the queue entry is gone.", item.Title, item.ID)
 	if err := r.notifier.SendAdmin(ctx, msg, incidentKey); err != nil {
 		r.logger.Error("failed to send remediation result", "error", err, "incident_key", incidentKey)

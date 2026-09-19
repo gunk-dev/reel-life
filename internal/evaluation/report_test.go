@@ -3,6 +3,7 @@ package evaluation
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestBuildAggregatesEvidenceAndToleratesMalformedLines(t *testing.T) {
@@ -58,5 +59,18 @@ func TestBuildPreservesCountsWithoutIncidentIdentity(t *testing.T) {
 	}
 	if report.RemediationsDetected != 2 {
 		t.Fatalf("legacy count = %d, want 2", report.RemediationsDetected)
+	}
+}
+
+func TestReconciliationCountsAreSeparateFromProvenResolution(t *testing.T) {
+	r, err := Build(strings.NewReader(`{"type":"remediation.reconciled","outcome":"queue_absent"}
+{"type":"remediation.reconciled","outcome":"queue_present"}
+{"type":"remediation.reconciled","outcome":"PRIVATE_CANARY"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := r.Summary(0, time.Now())
+	if s.ReconciliationAbsent != 1 || s.ReconciliationPresent != 1 || s.RemediationsResolved != 0 {
+		t.Fatalf("bad reconciliation counts: %+v", s)
 	}
 }
