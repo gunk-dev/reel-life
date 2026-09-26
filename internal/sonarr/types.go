@@ -6,20 +6,20 @@ type Season struct {
 }
 
 type Series struct {
-	ID               int      `json:"id"`
-	Title            string   `json:"title"`
-	Year             int      `json:"year"`
-	TVDBID           int      `json:"tvdbId"`
-	Status           string   `json:"status"`
-	Overview         string   `json:"overview"`
-	Monitored        bool     `json:"monitored"`
-	SeasonCount      int      `json:"seasonCount"`
-	Seasons          []Season `json:"seasons,omitempty"`
-	EpisodeCount     int      `json:"episodeCount,omitempty"`
-	EpisodeFileCount int      `json:"episodeFileCount,omitempty"`
-	SizeOnDisk       int64    `json:"sizeOnDisk,omitempty"`
-	RootFolderPath   string   `json:"rootFolderPath"`
-	Path             string   `json:"path,omitempty"`
+	ID                int      `json:"id"`
+	Title             string   `json:"title"`
+	Year              int      `json:"year"`
+	TVDBID            int      `json:"tvdbId"`
+	Status            string   `json:"status"`
+	Overview          string   `json:"overview"`
+	Monitored         bool     `json:"monitored"`
+	SeasonCount       int      `json:"seasonCount"`
+	Seasons           []Season `json:"seasons,omitempty"`
+	EpisodeCount      int      `json:"episodeCount,omitempty"`
+	EpisodeFileCount  int      `json:"episodeFileCount,omitempty"`
+	SizeOnDisk        int64    `json:"sizeOnDisk,omitempty"`
+	RootFolderPath    string   `json:"rootFolderPath"`
+	Path              string   `json:"path,omitempty"`
 	QualityProfileID  int      `json:"qualityProfileId"`
 	LanguageProfileID int      `json:"languageProfileId"`
 }
@@ -40,15 +40,23 @@ type QueuePage struct {
 	Records      []QueueItem `json:"records"`
 }
 
+type QueueStatusMessage struct {
+	Title    string   `json:"title"`
+	Messages []string `json:"messages"`
+}
+
 type QueueItem struct {
-	ID                    int     `json:"id"`
-	SeriesID              int     `json:"seriesId"`
-	Title                 string  `json:"title"`
-	Status                string  `json:"status"`
-	TrackedDownloadStatus string  `json:"trackedDownloadStatus"`
-	TrackedDownloadState  string  `json:"trackedDownloadState"`
-	Sizeleft              float64 `json:"sizeleft"`
-	Size                  float64 `json:"size"`
+	StatusMessages        []QueueStatusMessage `json:"statusMessages,omitempty"`
+	ErrorMessage          string               `json:"errorMessage,omitempty"`
+	EpisodeID             int                  `json:"episodeId"`
+	ID                    int                  `json:"id"`
+	SeriesID              int                  `json:"seriesId"`
+	Title                 string               `json:"title"`
+	Status                string               `json:"status"`
+	TrackedDownloadStatus string               `json:"trackedDownloadStatus"`
+	TrackedDownloadState  string               `json:"trackedDownloadState"`
+	Sizeleft              float64              `json:"sizeleft"`
+	Size                  float64              `json:"size"`
 }
 
 type HistoryPage struct {
@@ -159,21 +167,22 @@ type DownloadClient struct {
 }
 
 type CommandRequest struct {
+	EpisodeIDs   []int  `json:"episodeIds,omitempty"`
 	Name         string `json:"name"`
 	SeriesID     int    `json:"seriesId,omitempty"`
 	SeasonNumber *int   `json:"seasonNumber,omitempty"`
 }
 
 type CommandResource struct {
-	ID        int    `json:"id"`
-	Name      string `json:"name"`
-	Status    string `json:"status"`
-	Queued    string `json:"queued,omitempty"`
-	Started   string `json:"started,omitempty"`
-	Ended     string `json:"ended,omitempty"`
-	Priority  string `json:"priority,omitempty"`
-	Trigger   string `json:"trigger,omitempty"`
-	SendUpdatesToClient bool `json:"sendUpdatesToClient"`
+	ID                  int    `json:"id"`
+	Name                string `json:"name"`
+	Status              string `json:"status"`
+	Queued              string `json:"queued,omitempty"`
+	Started             string `json:"started,omitempty"`
+	Ended               string `json:"ended,omitempty"`
+	Priority            string `json:"priority,omitempty"`
+	Trigger             string `json:"trigger,omitempty"`
+	SendUpdatesToClient bool   `json:"sendUpdatesToClient"`
 }
 
 type GrabReleaseRequest struct {

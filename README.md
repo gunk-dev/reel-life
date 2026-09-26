@@ -167,3 +167,7 @@ go test ./...     # run tests
 go build ./...    # verify compilation
 go vet ./...      # lint
 ```
+
+Ask “Why hasn't this episode arrived?” for an evidence-based diagnosis, followed
+by an explicitly requested single-episode search if appropriate. See
+[episode investigation](docs/episode-investigation.md) for behavior and limits.
