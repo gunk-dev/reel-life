@@ -159,6 +159,7 @@ type toolDef struct {
 
 // mutativeTools is the set of tools that change state but are additive/safe.
 var mutativeTools = map[string]bool{
+	"trigger_episode_search":         true,
 	"add_series":                     true,
 	"add_movie":                      true,
 	"approve_request":                true,
@@ -185,14 +186,14 @@ var mutativeTools = map[string]bool{
 // destructiveTools is the set of tools that remove or delete data.
 // Destructive tools are implicitly also mutative.
 var destructiveTools = map[string]bool{
-	"remove_failed":              true,
-	"remove_failed_movie":        true,
-	"delete_series":              true,
-	"delete_movie":               true,
-	"remove_blocklist_item":      true,
+	"remove_failed":               true,
+	"remove_failed_movie":         true,
+	"delete_series":               true,
+	"delete_movie":                true,
+	"remove_blocklist_item":       true,
 	"remove_movie_blocklist_item": true,
-	"delete_request":             true,
-	"delete_indexer":             true,
+	"delete_request":              true,
+	"delete_indexer":              true,
 }
 
 // IsMutative reports whether the named tool changes state.

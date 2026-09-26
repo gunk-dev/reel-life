@@ -89,8 +89,15 @@ type updateSeriesLanguageProfileInput struct {
 	LanguageProfileID int `json:"language_profile_id" jsonschema_description:"Language profile ID to assign"`
 }
 
+type investigateEpisodeInput struct {
+	SeriesID  int `json:"series_id" jsonschema_description:"Verified Sonarr series ID from tool results"`
+	EpisodeID int `json:"episode_id" jsonschema_description:"Verified Sonarr episode ID from get_episodes, not the episode number"`
+}
+
 func sonarrToolDefs() []toolDef {
 	return []toolDef{
+		{Param: anthropic.ToolParam{Name: "investigate_episode", Description: anthropic.String("Investigate why one episode has not arrived. Read-only: combines episode status, complete queue, limited recent history, and release search/rejection reasons. Does not download, change monitoring, or remove anything. Report missing evidence and limitations."), InputSchema: generateSchema[investigateEpisodeInput]()}},
+		{Param: anthropic.ToolParam{Name: "trigger_episode_search", Description: anthropic.String("Start an automatic Sonarr search for exactly one episode, only after an explicit user request to retry/search. May download a release. Checks fresh file, air date, monitoring, and queue state first. Command acceptance is not download success. Never use merely because the user asked why an episode is missing."), InputSchema: generateSchema[investigateEpisodeInput]()}, Mutative: true},
 		{
 			Param: anthropic.ToolParam{
 				Name:        "search_series",

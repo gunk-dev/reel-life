@@ -83,6 +83,11 @@ func (c *HTTPClient) Add(ctx context.Context, req AddSeriesRequest) (*Series, er
 
 func (c *HTTPClient) History(ctx context.Context, pageSize int) (*HistoryPage, error) {
 	u := c.url("/api/v3/history")
+	query := u.Query()
+	query.Set("page", "1")
+	query.Set("sortKey", "date")
+	query.Set("sortDirection", "descending")
+	u.RawQuery = query.Encode()
 	// 0 means "not specified" (JSON omitempty zero value); let the server use its default.
 	if pageSize > 0 {
 		q := u.Query()

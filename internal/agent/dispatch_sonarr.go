@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/patflynn/reel-life/internal/investigation"
+	"time"
 
 	"github.com/patflynn/reel-life/internal/sonarr"
 )
@@ -11,7 +13,7 @@ import (
 func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.RawMessage) (ToolResult, bool) {
 	if a.sonarr == nil {
 		switch name {
-		case "search_series", "add_series", "get_queue", "get_history", "check_health", "remove_failed",
+		case "investigate_episode", "trigger_episode_search", "search_series", "add_series", "get_queue", "get_history", "check_health", "remove_failed",
 			"get_series_detail", "get_episodes", "get_logs", "manual_search", "get_quality_profiles",
 			"get_blocklist", "get_root_folders", "get_download_clients", "update_series_monitoring",
 			"trigger_series_search", "delete_series", "remove_blocklist_item", "grab_release",
@@ -25,6 +27,19 @@ func (a *Agent) dispatchSonarr(ctx context.Context, name string, rawInput json.R
 	var err error
 
 	switch name {
+	case "investigate_episode", "trigger_episode_search":
+		var input investigateEpisodeInput
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return inputDecodeError(err), true
+		}
+		if input.SeriesID <= 0 || input.EpisodeID <= 0 {
+			return errorResult("invalid_input", "positive series_id and episode_id are required", false), true
+		}
+		if name == "investigate_episode" {
+			result, err = investigation.Episode(ctx, a.sonarr, input.SeriesID, input.EpisodeID, time.Now())
+		} else {
+			return a.searchEpisode(ctx, input), true
+		}
 	case "search_series":
 		var input searchSeriesInput
 		if err := json.Unmarshal(rawInput, &input); err != nil {
